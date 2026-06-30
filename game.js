@@ -9,6 +9,7 @@ const playScreen = document.querySelector("#playScreen");
 const victoryScreen = document.querySelector("#victoryScreen");
 const playAgainButton = document.querySelector("#playAgainButton");
 const restartLevelButton = document.querySelector("#restartLevelButton");
+const muteButton = document.querySelector("#muteButton");
 const joystick = document.querySelector("#joystick");
 const joystickKnob = document.querySelector("#joystickKnob");
 const danceFloor = document.querySelector("#danceFloor");
@@ -21,13 +22,62 @@ const joystickMaxOffset = 46;
 const joystickDeadZone = 14;
 const moveRepeatMs = 150;
 const ballTravelMs = 145;
+const wallWidth = tileSize * 0.24;
+const levelBackgroundSources = [
+  "bos-nicholas-short-hair-rbb-660x780.png",
+  "bos-nicholas-short-hair-rbb-660x780.png",
+  "bos-nicholas-short-hair-rbb-660x780.png",
+  "bos-nicholas-short-hair-rbb-660x780.png",
+  "bos-nicholas-short-hair-rbb-660x780.png"
+];
+const levelBackgrounds = levelBackgroundSources.map((source) => {
+  const image = new Image();
+  image.src = source;
+  return image;
+});
+const snowflakes = Array.from({ length: 70 }, (_, index) => ({
+  x: (index * 97) % canvas.width,
+  y: (index * 173) % canvas.height,
+  radius: 1.2 + (index % 4) * 0.45,
+  speed: 0.02 + (index % 5) * 0.008,
+  drift: 9 + (index % 6) * 4,
+  phase: index * 0.63
+}));
+const levelMusicSources = [
+  "rbb-level-1-music-piano.mp3",
+  "rbb-level-2-music-percussion.mp3",
+  "rbb-level-3-music-clarinet.mp3",
+  "rbb-level-4-music-horns.mp3",
+  "rbb-level-5-music-strings.mp3"
+];
+const victoryMusicSource = "rbb-level-WIN-music-ALL.mp3";
+const backgroundMusic = new Audio();
+const victoryMusic = new Audio(victoryMusicSource);
+const musicPreloads = levelMusicSources.concat(victoryMusicSource).map((source) => {
+  const audio = new Audio(source);
+  audio.preload = "auto";
+  audio.load();
+  return audio;
+});
+
+backgroundMusic.loop = true;
+backgroundMusic.preload = "auto";
+backgroundMusic.volume = 0.35;
+victoryMusic.loop = true;
+victoryMusic.preload = "auto";
+victoryMusic.volume = 0.35;
+victoryMusic.muted = true;
+victoryMusic.load();
 
 const pointKey = (point) => `${point.x},${point.y}`;
 const makePoint = (x, y) => ({ x, y });
 let activeInputDirection = null;
 let activeKeyDirection = null;
 let moveRepeatTimer = null;
-let lastFrameTime = 0;
+let musicWasStarted = false;
+let currentMusicSource = "";
+let isMuted = false;
+let victoryMusicIsPrimed = false;
 
 const makeLevel = (number, start, exit, bands, innerWalls) => {
   const wallKeys = new Set(innerWalls.map(pointKey));
@@ -120,6 +170,7 @@ function resetGame() {
   victoryScreen.classList.add("hidden");
   playScreen.classList.remove("hidden");
   levelLabel.classList.remove("hidden");
+  updateLevelMusic();
   draw();
 }
 
@@ -134,6 +185,7 @@ function resetLevel() {
   state.collected = 0;
   state.moves = 0;
   state.remainingBandKeys = new Set(level.bandKeys);
+  updateLevelMusic();
 }
 
 function startMoving(direction) {
@@ -145,6 +197,7 @@ function startMoving(direction) {
   if (activeInputDirection === direction && moveRepeatTimer) return;
 
   stopMoveTimer();
+  startLevelMusic();
   activeInputDirection = direction;
   move(direction);
   moveRepeatTimer = window.setInterval(() => move(direction), moveRepeatMs);
@@ -254,13 +307,74 @@ function completeLevel() {
   state.collected = 0;
   state.moves = 0;
   state.remainingBandKeys = new Set(level.bandKeys);
+  updateLevelMusic();
 }
 
 function showVictory() {
   stopMoving();
+  playVictoryMusic();
   playScreen.classList.add("hidden");
   levelLabel.classList.add("hidden");
   victoryScreen.classList.remove("hidden");
+}
+
+function startLevelMusic() {
+  musicWasStarted = true;
+  updateLevelMusic();
+  primeVictoryMusic();
+}
+
+function updateLevelMusic() {
+  if (!musicWasStarted || state.hasWon) return;
+
+  victoryMusic.muted = true;
+  playMusicSource(levelMusicSources[state.levelIndex], false);
+}
+
+function playVictoryMusic() {
+  if (!musicWasStarted) return;
+
+  backgroundMusic.pause();
+  currentMusicSource = "";
+  victoryMusic.currentTime = 0;
+  victoryMusic.muted = isMuted;
+  victoryMusic.play().catch(() => {});
+}
+
+function playMusicSource(source, restart) {
+  if (!source) return;
+
+  if (currentMusicSource !== source) {
+    backgroundMusic.src = source;
+    currentMusicSource = source;
+    backgroundMusic.currentTime = 0;
+  } else if (restart) {
+    backgroundMusic.currentTime = 0;
+  }
+
+  backgroundMusic.play().catch(() => {});
+}
+
+function toggleMute() {
+  isMuted = !isMuted;
+  backgroundMusic.muted = isMuted;
+  victoryMusic.muted = isMuted || !state.hasWon;
+  updateMuteButton();
+}
+
+function updateMuteButton() {
+  muteButton.textContent = isMuted ? "Unmute" : "Mute";
+  muteButton.setAttribute("aria-pressed", String(isMuted));
+}
+
+function primeVictoryMusic() {
+  if (victoryMusicIsPrimed) return;
+
+  victoryMusicIsPrimed = true;
+  victoryMusic.muted = true;
+  victoryMusic.play().catch(() => {
+    victoryMusicIsPrimed = false;
+  });
 }
 
 function draw(now = performance.now()) {
@@ -268,14 +382,10 @@ function draw(now = performance.now()) {
 
   updateVisualBall(now);
   context.clearRect(0, 0, canvas.width, canvas.height);
-  context.fillStyle = "#03090c";
-  context.fillRect(0, 0, canvas.width, canvas.height);
+  drawBackground();
+  drawBackgroundAnimation(now);
 
-  for (let y = 0; y < height; y += 1) {
-    for (let x = 0; x < width; x += 1) {
-      drawTile(x, y, level);
-    }
-  }
+  drawWalls(level);
 
   drawExit(level.exit, state.remainingBandKeys.size === 0);
   level.bands.forEach((band) => {
@@ -285,6 +395,43 @@ function draw(now = performance.now()) {
   });
   drawBall(state.visualBall.x, state.visualBall.y);
   updateLabels();
+}
+
+function drawBackground() {
+  const background = levelBackgrounds[state.levelIndex];
+
+  if (background?.complete && background.naturalWidth > 0) {
+    context.drawImage(background, 0, 0, canvas.width, canvas.height);
+    context.fillStyle = "rgba(3, 9, 12, 0.18)";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    return;
+  }
+
+  context.fillStyle = "#03090c";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+}
+
+function drawBackgroundAnimation(now) {
+  drawSnow(now);
+}
+
+function drawSnow(now) {
+  context.save();
+
+  snowflakes.forEach((flake) => {
+    const fall = (flake.y + now * flake.speed) % (canvas.height + 24);
+    const sway = Math.sin(now * 0.0011 + flake.phase) * flake.drift;
+    const x = (flake.x + sway + canvas.width) % canvas.width;
+    const y = fall - 12;
+
+    context.globalAlpha = 0.36 + (flake.radius - 1.2) * 0.12;
+    context.fillStyle = "#ffffff";
+    context.beginPath();
+    context.arc(x, y, flake.radius, 0, Math.PI * 2);
+    context.fill();
+  });
+
+  context.restore();
 }
 
 function updateVisualBall(now) {
@@ -297,24 +444,55 @@ function updateVisualBall(now) {
   };
 }
 
-function drawTile(x, y, level) {
-  const key = pointKey(makePoint(x, y));
-  const px = x * tileSize;
-  const py = y * tileSize;
+function drawWalls(level) {
+  context.save();
+  context.lineCap = "round";
+  context.lineJoin = "round";
+  drawWallLayer(level, wallWidth + 8, "rgba(119, 230, 239, 0.22)");
+  drawWallLayer(level, wallWidth, "#14616f");
+  drawWallNodes(level, wallWidth * 0.52, "#14616f");
+  drawWallNodes(level, wallWidth * 0.26, "rgba(119, 230, 239, 0.42)");
+  context.restore();
+}
 
-  if (level.wallKeys.has(key)) {
-    context.fillStyle = "#14616f";
-    context.fillRect(px + 2, py + 2, tileSize - 4, tileSize - 4);
-    context.strokeStyle = "rgba(119, 230, 239, 0.6)";
-    context.lineWidth = 2;
-    context.strokeRect(px + 3, py + 3, tileSize - 6, tileSize - 6);
-  } else {
-    context.fillStyle = "rgba(255,255,255,0.035)";
-    context.fillRect(px, py, tileSize, tileSize);
-    context.strokeStyle = "rgba(255,255,255,0.05)";
-    context.lineWidth = 1;
-    context.strokeRect(px, py, tileSize, tileSize);
-  }
+function drawWallLayer(level, lineWidth, strokeStyle) {
+  context.strokeStyle = strokeStyle;
+  context.lineWidth = lineWidth;
+  context.beginPath();
+
+  level.wallKeys.forEach((key) => {
+    const [x, y] = key.split(",").map(Number);
+    const center = centerOf(x, y);
+    const rightKey = pointKey(makePoint(x + 1, y));
+    const downKey = pointKey(makePoint(x, y + 1));
+
+    if (level.wallKeys.has(rightKey)) {
+      const rightCenter = centerOf(x + 1, y);
+      context.moveTo(center.x, center.y);
+      context.lineTo(rightCenter.x, rightCenter.y);
+    }
+
+    if (level.wallKeys.has(downKey)) {
+      const downCenter = centerOf(x, y + 1);
+      context.moveTo(center.x, center.y);
+      context.lineTo(downCenter.x, downCenter.y);
+    }
+  });
+
+  context.stroke();
+}
+
+function drawWallNodes(level, radius, fillStyle) {
+  context.fillStyle = fillStyle;
+
+  level.wallKeys.forEach((key) => {
+    const [x, y] = key.split(",").map(Number);
+    const center = centerOf(x, y);
+
+    context.beginPath();
+    context.arc(center.x, center.y, radius, 0, Math.PI * 2);
+    context.fill();
+  });
 }
 
 function drawExit(exit, isOpen) {
@@ -472,6 +650,8 @@ window.addEventListener("blur", () => {
 
 playAgainButton.addEventListener("click", resetGame);
 restartLevelButton.addEventListener("click", resetLevel);
+muteButton.addEventListener("click", toggleMute);
+updateMuteButton();
 
 rubberBandColors.concat(rubberBandColors, rubberBandColors).slice(0, 12).forEach((color, index) => {
   const band = document.createElement("span");
@@ -483,4 +663,9 @@ rubberBandColors.concat(rubberBandColors, rubberBandColors).slice(0, 12).forEach
   danceFloor.appendChild(band);
 });
 
-draw();
+function animationLoop(now) {
+  draw(now);
+  window.requestAnimationFrame(animationLoop);
+}
+
+window.requestAnimationFrame(animationLoop);

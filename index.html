@@ -10,7 +10,10 @@
     <main class="game-shell">
       <header class="top-bar">
         <h1>Rubber Band Ball</h1>
-        <div id="levelLabel" class="level-label">Level 1/5</div>
+        <div class="top-controls">
+          <div id="levelLabel" class="level-label">Level 1/5</div>
+          <button id="muteButton" class="mute-button" type="button" aria-pressed="false">Mute</button>
+        </div>
       </header>
 
       <section id="playScreen" class="play-screen" aria-label="Rubber Band Ball game">
@@ -37,7 +40,7 @@
       <section id="victoryScreen" class="victory-screen hidden" aria-label="Victory dance party">
         <h2>The Rubber Band Ball</h2>
         <div id="danceFloor" class="dance-floor" aria-hidden="true"></div>
-        <p>You won! Have a ball!</p>
+        <p>You've won! Have a ball!</p>
         <button id="playAgainButton" class="play-again" type="button">Play Again</button>
       </section>
     </main>
