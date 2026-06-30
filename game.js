@@ -44,11 +44,11 @@ const snowflakes = Array.from({ length: 70 }, (_, index) => ({
   phase: index * 0.63
 }));
 const levelMusicSources = [
-  "rbb-level-1-music-piano.mp3",
+  "rbb-level-5-music-strings.mp3",
+  "rbb-level-4-music-horns.mp3",
   "rbb-level-2-music-percussion.mp3",
   "rbb-level-3-music-clarinet.mp3",
-  "rbb-level-4-music-horns.mp3",
-  "rbb-level-5-music-strings.mp3"
+  "rbb-level-1-music-piano.mp3"
 ];
 const victoryMusicSource = "rbb-level-WIN-music-ALL.mp3";
 const backgroundMusic = new Audio();
