@@ -3,19 +3,31 @@ const context = canvas.getContext("2d");
 const levelLabel = document.querySelector("#levelLabel");
 const collectedLabel = document.querySelector("#collectedLabel");
 const remainingLabel = document.querySelector("#remainingLabel");
+const movesLabel = document.querySelector("#movesLabel");
 const exitLabel = document.querySelector("#exitLabel");
 const playScreen = document.querySelector("#playScreen");
 const victoryScreen = document.querySelector("#victoryScreen");
 const playAgainButton = document.querySelector("#playAgainButton");
+const restartLevelButton = document.querySelector("#restartLevelButton");
+const joystick = document.querySelector("#joystick");
+const joystickKnob = document.querySelector("#joystickKnob");
 const danceFloor = document.querySelector("#danceFloor");
 
 const width = 11;
 const height = 13;
 const tileSize = canvas.width / width;
 const rubberBandColors = ["#fac737", "#f2473f", "#40b9f2", "#5bc76d", "#d96ef2"];
+const joystickMaxOffset = 46;
+const joystickDeadZone = 14;
+const moveRepeatMs = 150;
+const ballTravelMs = 145;
 
 const pointKey = (point) => `${point.x},${point.y}`;
 const makePoint = (x, y) => ({ x, y });
+let activeInputDirection = null;
+let activeKeyDirection = null;
+let moveRepeatTimer = null;
+let lastFrameTime = 0;
 
 const makeLevel = (number, start, exit, bands, innerWalls) => {
   const wallKeys = new Set(innerWalls.map(pointKey));
@@ -85,21 +97,114 @@ const levels = [
 const state = {
   levelIndex: 0,
   ball: { ...levels[0].start },
+  visualBall: { ...levels[0].start },
+  previousBall: { ...levels[0].start },
+  moveStartedAt: 0,
   collected: 0,
+  moves: 0,
   remainingBandKeys: new Set(levels[0].bandKeys),
   hasWon: false
 };
 
 function resetGame() {
+  resetJoystick();
   state.levelIndex = 0;
   state.ball = { ...levels[0].start };
+  state.visualBall = { ...levels[0].start };
+  state.previousBall = { ...levels[0].start };
+  state.moveStartedAt = performance.now();
   state.collected = 0;
+  state.moves = 0;
   state.remainingBandKeys = new Set(levels[0].bandKeys);
   state.hasWon = false;
   victoryScreen.classList.add("hidden");
   playScreen.classList.remove("hidden");
   levelLabel.classList.remove("hidden");
   draw();
+}
+
+function resetLevel() {
+  resetJoystick();
+  const level = levels[state.levelIndex];
+
+  state.ball = { ...level.start };
+  state.visualBall = { ...level.start };
+  state.previousBall = { ...level.start };
+  state.moveStartedAt = performance.now();
+  state.collected = 0;
+  state.moves = 0;
+  state.remainingBandKeys = new Set(level.bandKeys);
+}
+
+function startMoving(direction) {
+  if (!direction) {
+    stopMoving();
+    return;
+  }
+
+  if (activeInputDirection === direction && moveRepeatTimer) return;
+
+  stopMoveTimer();
+  activeInputDirection = direction;
+  move(direction);
+  moveRepeatTimer = window.setInterval(() => move(direction), moveRepeatMs);
+}
+
+function stopMoving() {
+  activeInputDirection = null;
+  stopMoveTimer();
+}
+
+function stopMoveTimer() {
+  if (!moveRepeatTimer) return;
+
+  window.clearInterval(moveRepeatTimer);
+  moveRepeatTimer = null;
+}
+
+function updateJoystickFromPointer(event) {
+  const rect = joystick.getBoundingClientRect();
+  const centerX = rect.left + rect.width / 2;
+  const centerY = rect.top + rect.height / 2;
+  const rawOffset = {
+    x: event.clientX - centerX,
+    y: event.clientY - centerY
+  };
+  const offset = clampJoystickOffset(rawOffset);
+
+  joystickKnob.style.transform = `translate(${offset.x}px, ${offset.y}px)`;
+  startMoving(directionFromOffset(offset));
+}
+
+function resetJoystick() {
+  joystickKnob.style.transform = "translate(0, 0)";
+  stopMoving();
+}
+
+function clampJoystickOffset(offset) {
+  const distance = Math.hypot(offset.x, offset.y);
+
+  if (distance <= joystickMaxOffset) {
+    return offset;
+  }
+
+  const scale = joystickMaxOffset / distance;
+  return {
+    x: offset.x * scale,
+    y: offset.y * scale
+  };
+}
+
+function directionFromOffset(offset) {
+  if (Math.max(Math.abs(offset.x), Math.abs(offset.y)) < joystickDeadZone) {
+    return null;
+  }
+
+  if (Math.abs(offset.x) > Math.abs(offset.y)) {
+    return offset.x < 0 ? "left" : "right";
+  }
+
+  return offset.y < 0 ? "up" : "down";
 }
 
 function move(direction) {
@@ -115,9 +220,14 @@ function move(direction) {
   const level = levels[state.levelIndex];
   const nextKey = pointKey(next);
 
-  if (level.wallKeys.has(nextKey)) return;
+  if (level.wallKeys.has(nextKey)) {
+    return;
+  }
 
+  state.previousBall = { ...state.visualBall };
   state.ball = next;
+  state.moveStartedAt = performance.now();
+  state.moves += 1;
 
   if (state.remainingBandKeys.delete(nextKey)) {
     state.collected += 1;
@@ -126,8 +236,6 @@ function move(direction) {
   if (state.remainingBandKeys.size === 0 && nextKey === pointKey(level.exit)) {
     completeLevel();
   }
-
-  draw();
 }
 
 function completeLevel() {
@@ -140,19 +248,25 @@ function completeLevel() {
   state.levelIndex += 1;
   const level = levels[state.levelIndex];
   state.ball = { ...level.start };
+  state.visualBall = { ...level.start };
+  state.previousBall = { ...level.start };
+  state.moveStartedAt = performance.now();
   state.collected = 0;
+  state.moves = 0;
   state.remainingBandKeys = new Set(level.bandKeys);
 }
 
 function showVictory() {
+  stopMoving();
   playScreen.classList.add("hidden");
   levelLabel.classList.add("hidden");
   victoryScreen.classList.remove("hidden");
 }
 
-function draw() {
+function draw(now = performance.now()) {
   const level = levels[state.levelIndex];
 
+  updateVisualBall(now);
   context.clearRect(0, 0, canvas.width, canvas.height);
   context.fillStyle = "#03090c";
   context.fillRect(0, 0, canvas.width, canvas.height);
@@ -166,11 +280,21 @@ function draw() {
   drawExit(level.exit, state.remainingBandKeys.size === 0);
   level.bands.forEach((band) => {
     if (state.remainingBandKeys.has(pointKey(band))) {
-      drawRubberBand(band.x, band.y, tileSize * 0.58, "#fac737");
+      drawRubberBand(band.x, band.y, tileSize * 0.58, "#fac737", now);
     }
   });
-  drawBall(state.ball.x, state.ball.y);
+  drawBall(state.visualBall.x, state.visualBall.y);
   updateLabels();
+}
+
+function updateVisualBall(now) {
+  const progress = Math.min(1, (now - state.moveStartedAt) / ballTravelMs);
+  const eased = progress * progress * (3 - 2 * progress);
+
+  state.visualBall = {
+    x: state.previousBall.x + (state.ball.x - state.previousBall.x) * eased,
+    y: state.previousBall.y + (state.ball.y - state.previousBall.y) * eased
+  };
 }
 
 function drawTile(x, y, level) {
@@ -206,12 +330,13 @@ function drawExit(exit, isOpen) {
   context.fill();
 }
 
-function drawRubberBand(x, y, size, color) {
+function drawRubberBand(x, y, size, color, now) {
   const center = centerOf(x, y);
+  const spin = now / 430;
 
   context.save();
   context.translate(center.x, center.y);
-  context.rotate(-0.42);
+  context.rotate(spin);
   context.strokeStyle = color;
   context.lineWidth = Math.max(4, size * 0.16);
   context.shadowColor = color;
@@ -267,12 +392,32 @@ function updateLabels() {
   levelLabel.textContent = `Level ${level.number}/5`;
   collectedLabel.textContent = `${state.collected} collected`;
   remainingLabel.textContent = `${state.remainingBandKeys.size} left`;
+  movesLabel.textContent = `${state.moves} moves`;
   exitLabel.textContent = state.remainingBandKeys.size === 0 ? "Find exit" : "Collect bands";
 }
 
-document.querySelectorAll("[data-direction]").forEach((button) => {
-  button.addEventListener("click", () => move(button.dataset.direction));
+joystick.addEventListener("pointerdown", (event) => {
+  event.preventDefault();
+  joystick.setPointerCapture(event.pointerId);
+  updateJoystickFromPointer(event);
 });
+
+joystick.addEventListener("pointermove", (event) => {
+  if (!joystick.hasPointerCapture(event.pointerId)) return;
+
+  event.preventDefault();
+  updateJoystickFromPointer(event);
+});
+
+joystick.addEventListener("pointerup", (event) => {
+  if (joystick.hasPointerCapture(event.pointerId)) {
+    joystick.releasePointerCapture(event.pointerId);
+  }
+
+  resetJoystick();
+});
+
+joystick.addEventListener("pointercancel", resetJoystick);
 
 document.addEventListener("keydown", (event) => {
   const keyMap = {
@@ -294,10 +439,39 @@ document.addEventListener("keydown", (event) => {
   if (!direction) return;
 
   event.preventDefault();
-  move(direction);
+  activeKeyDirection = direction;
+  startMoving(direction);
+});
+
+document.addEventListener("keyup", (event) => {
+  const keyMap = {
+    ArrowUp: "up",
+    w: "up",
+    W: "up",
+    ArrowDown: "down",
+    s: "down",
+    S: "down",
+    ArrowLeft: "left",
+    a: "left",
+    A: "left",
+    ArrowRight: "right",
+    d: "right",
+    D: "right"
+  };
+
+  if (keyMap[event.key] !== activeKeyDirection) return;
+
+  activeKeyDirection = null;
+  stopMoving();
+});
+
+window.addEventListener("blur", () => {
+  activeKeyDirection = null;
+  resetJoystick();
 });
 
 playAgainButton.addEventListener("click", resetGame);
+restartLevelButton.addEventListener("click", resetLevel);
 
 rubberBandColors.concat(rubberBandColors, rubberBandColors).slice(0, 12).forEach((color, index) => {
   const band = document.createElement("span");
