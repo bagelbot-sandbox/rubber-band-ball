@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Rubber Band Ball</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <main class="game-shell">
+      <header class="top-bar">
+        <h1>Rubber Band Ball</h1>
+        <div id="levelLabel" class="level-label">Level 1/5</div>
+      </header>
+
+      <section id="playScreen" class="play-screen" aria-label="Rubber Band Ball game">
+        <canvas id="gameCanvas" width="660" height="780" aria-label="Game maze"></canvas>
+
+        <div class="status-row" aria-live="polite">
+          <span id="collectedLabel">0 collected</span>
+          <span id="remainingLabel">5 left</span>
+          <span id="exitLabel">Collect bands</span>
+        </div>
+
+        <nav class="direction-pad" aria-label="Direction controls">
+          <button class="pad-button up" type="button" data-direction="up" aria-label="Move up">▲</button>
+          <button class="pad-button left" type="button" data-direction="left" aria-label="Move left">◀</button>
+          <button class="pad-button right" type="button" data-direction="right" aria-label="Move right">▶</button>
+          <button class="pad-button down" type="button" data-direction="down" aria-label="Move down">▼</button>
+        </nav>
+      </section>
+
+      <section id="victoryScreen" class="victory-screen hidden" aria-label="Victory dance party">
+        <h2>The Rubber Band Ball</h2>
+        <div id="danceFloor" class="dance-floor" aria-hidden="true"></div>
+        <p>You won! Have a ball!</p>
+        <button id="playAgainButton" class="play-again" type="button">Play Again</button>
+      </section>
+    </main>
+
+    <script src="game.js"></script>
+  </body>
+</html>
