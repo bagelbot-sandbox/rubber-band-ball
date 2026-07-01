@@ -27,7 +27,6 @@ const levelBackgroundSources = [
   "bos-nicholas-short-hair-rbb-660x780.png",
   "bos-nicholas-short-hair-rbb-660x780.png",
   "bos-nicholas-short-hair-rbb-660x780.png",
-  "bos-nicholas-short-hair-rbb-660x780.png",
   "bos-nicholas-short-hair-rbb-660x780.png"
 ];
 const levelBackgrounds = levelBackgroundSources.map((source) => {
@@ -47,7 +46,6 @@ const levelMusicSources = [
   "rbb-level-5-music-strings.mp3",
   "rbb-level-4-music-horns.mp3",
   "rbb-level-2-music-percussion.mp3",
-  "rbb-level-3-music-clarinet.mp3",
   "rbb-level-1-music-piano.mp3"
 ];
 const victoryMusicSource = "rbb-level-WIN-music-ALL.mp3";
@@ -130,13 +128,6 @@ const levels = [
   ),
   makeLevel(
     4,
-    makePoint(9, 11),
-    makePoint(1, 1),
-    [makePoint(8, 10), makePoint(5, 10), makePoint(2, 8), makePoint(4, 4), makePoint(8, 2)],
-    [makePoint(2, 3), makePoint(2, 4), makePoint(2, 5), makePoint(5, 2), makePoint(5, 3), makePoint(5, 4), makePoint(7, 6), makePoint(8, 6), makePoint(9, 6), makePoint(4, 9), makePoint(5, 9), makePoint(6, 9)]
-  ),
-  makeLevel(
-    5,
     makePoint(1, 6),
     makePoint(9, 6),
     [makePoint(2, 2), makePoint(8, 2), makePoint(5, 5), makePoint(2, 10), makePoint(8, 10)],
@@ -567,7 +558,7 @@ function centerOf(x, y) {
 
 function updateLabels() {
   const level = levels[state.levelIndex];
-  levelLabel.textContent = `Level ${level.number}/5`;
+  levelLabel.textContent = `Level ${level.number}/${levels.length}`;
   collectedLabel.textContent = `${state.collected} collected`;
   remainingLabel.textContent = `${state.remainingBandKeys.size} left`;
   movesLabel.textContent = `${state.moves} moves`;
