@@ -28,12 +28,12 @@
 
         <button id="restartLevelButton" class="restart-level" type="button">Restart Level</button>
 
-        <div id="joystick" class="joystick" role="application" aria-label="Movement joystick">
-          <span class="joystick-arrow up" aria-hidden="true">▲</span>
-          <span class="joystick-arrow left" aria-hidden="true">◀</span>
-          <span class="joystick-arrow right" aria-hidden="true">▶</span>
-          <span class="joystick-arrow down" aria-hidden="true">▼</span>
-          <span id="joystickKnob" class="joystick-knob" aria-hidden="true"></span>
+        <div id="dpad" class="dpad" role="group" aria-label="Movement controls">
+          <button class="dpad-button up" type="button" data-direction="up" aria-label="Move up">▲</button>
+          <button class="dpad-button left" type="button" data-direction="left" aria-label="Move left">◀</button>
+          <button class="dpad-button center" type="button" tabindex="-1" aria-hidden="true"></button>
+          <button class="dpad-button right" type="button" data-direction="right" aria-label="Move right">▶</button>
+          <button class="dpad-button down" type="button" data-direction="down" aria-label="Move down">▼</button>
         </div>
       </section>
 

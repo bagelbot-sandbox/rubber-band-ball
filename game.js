@@ -10,18 +10,16 @@ const victoryScreen = document.querySelector("#victoryScreen");
 const playAgainButton = document.querySelector("#playAgainButton");
 const restartLevelButton = document.querySelector("#restartLevelButton");
 const muteButton = document.querySelector("#muteButton");
-const joystick = document.querySelector("#joystick");
-const joystickKnob = document.querySelector("#joystickKnob");
+const dpad = document.querySelector("#dpad");
+const dpadButtons = [...document.querySelectorAll(".dpad-button[data-direction]")];
 const danceFloor = document.querySelector("#danceFloor");
 
 const width = 11;
 const height = 13;
 const tileSize = canvas.width / width;
 const rubberBandColors = ["#fac737", "#f2473f", "#40b9f2", "#5bc76d", "#d96ef2"];
-const joystickMaxOffset = 46;
-const joystickDeadZone = 14;
-const moveRepeatMs = 150;
-const ballTravelMs = 145;
+const moveRepeatMs = 120;
+const ballTravelMs = 120;
 const wallWidth = tileSize * 0.24;
 const levelBackgroundSources = [
   "bos-nicholas-short-hair-rbb-660x780.png",
@@ -148,7 +146,7 @@ const state = {
 };
 
 function resetGame() {
-  resetJoystick();
+  resetControls();
   state.levelIndex = 0;
   state.ball = { ...levels[0].start };
   state.visualBall = { ...levels[0].start };
@@ -166,7 +164,7 @@ function resetGame() {
 }
 
 function resetLevel() {
-  resetJoystick();
+  resetControls();
   const level = levels[state.levelIndex];
 
   state.ball = { ...level.start };
@@ -181,17 +179,23 @@ function resetLevel() {
 
 function startMoving(direction) {
   if (!direction) {
-    stopMoving();
+    activeInputDirection = null;
     return;
   }
 
-  if (activeInputDirection === direction && moveRepeatTimer) return;
-
-  stopMoveTimer();
   startLevelMusic();
   activeInputDirection = direction;
+
+  if (moveRepeatTimer) {
+    return;
+  }
+
   move(direction);
-  moveRepeatTimer = window.setInterval(() => move(direction), moveRepeatMs);
+  moveRepeatTimer = window.setInterval(() => {
+    if (activeInputDirection) {
+      move(activeInputDirection);
+    }
+  }, moveRepeatMs);
 }
 
 function stopMoving() {
@@ -206,53 +210,20 @@ function stopMoveTimer() {
   moveRepeatTimer = null;
 }
 
-function updateJoystickFromPointer(event) {
-  const rect = joystick.getBoundingClientRect();
-  const centerX = rect.left + rect.width / 2;
-  const centerY = rect.top + rect.height / 2;
-  const rawOffset = {
-    x: event.clientX - centerX,
-    y: event.clientY - centerY
-  };
-  const offset = clampJoystickOffset(rawOffset);
-
-  joystickKnob.style.transform = `translate(${offset.x}px, ${offset.y}px)`;
-  startMoving(directionFromOffset(offset));
-}
-
-function resetJoystick() {
-  joystickKnob.style.transform = "translate(0, 0)";
+function resetControls() {
+  setActiveDpadDirection(null);
   stopMoving();
 }
 
-function clampJoystickOffset(offset) {
-  const distance = Math.hypot(offset.x, offset.y);
-
-  if (distance <= joystickMaxOffset) {
-    return offset;
-  }
-
-  const scale = joystickMaxOffset / distance;
-  return {
-    x: offset.x * scale,
-    y: offset.y * scale
-  };
-}
-
-function directionFromOffset(offset) {
-  if (Math.max(Math.abs(offset.x), Math.abs(offset.y)) < joystickDeadZone) {
-    return null;
-  }
-
-  if (Math.abs(offset.x) > Math.abs(offset.y)) {
-    return offset.x < 0 ? "left" : "right";
-  }
-
-  return offset.y < 0 ? "up" : "down";
+function setActiveDpadDirection(direction) {
+  dpad.dataset.direction = direction || "";
+  dpadButtons.forEach((button) => {
+    button.classList.toggle("active", button.dataset.direction === direction);
+  });
 }
 
 function move(direction) {
-  if (state.hasWon) return;
+  if (state.hasWon) return false;
 
   const next = { ...state.ball };
 
@@ -265,7 +236,7 @@ function move(direction) {
   const nextKey = pointKey(next);
 
   if (level.wallKeys.has(nextKey)) {
-    return;
+    return false;
   }
 
   state.previousBall = { ...state.visualBall };
@@ -280,6 +251,8 @@ function move(direction) {
   if (state.remainingBandKeys.size === 0 && nextKey === pointKey(level.exit)) {
     completeLevel();
   }
+
+  return true;
 }
 
 function completeLevel() {
@@ -565,28 +538,29 @@ function updateLabels() {
   exitLabel.textContent = state.remainingBandKeys.size === 0 ? "Find exit" : "Collect bands";
 }
 
-joystick.addEventListener("pointerdown", (event) => {
-  event.preventDefault();
-  joystick.setPointerCapture(event.pointerId);
-  updateJoystickFromPointer(event);
+dpadButtons.forEach((button) => {
+  button.addEventListener("pointerdown", (event) => {
+    event.preventDefault();
+    button.setPointerCapture(event.pointerId);
+    setActiveDpadDirection(button.dataset.direction);
+    startMoving(button.dataset.direction);
+  });
+
+  button.addEventListener("pointerup", (event) => {
+    if (button.hasPointerCapture(event.pointerId)) {
+      button.releasePointerCapture(event.pointerId);
+    }
+
+    resetControls();
+  });
+
+  button.addEventListener("pointercancel", resetControls);
+  button.addEventListener("pointerleave", (event) => {
+    if (event.pointerType === "mouse") {
+      resetControls();
+    }
+  });
 });
-
-joystick.addEventListener("pointermove", (event) => {
-  if (!joystick.hasPointerCapture(event.pointerId)) return;
-
-  event.preventDefault();
-  updateJoystickFromPointer(event);
-});
-
-joystick.addEventListener("pointerup", (event) => {
-  if (joystick.hasPointerCapture(event.pointerId)) {
-    joystick.releasePointerCapture(event.pointerId);
-  }
-
-  resetJoystick();
-});
-
-joystick.addEventListener("pointercancel", resetJoystick);
 
 document.addEventListener("keydown", (event) => {
   const keyMap = {
@@ -609,6 +583,7 @@ document.addEventListener("keydown", (event) => {
 
   event.preventDefault();
   activeKeyDirection = direction;
+  setActiveDpadDirection(direction);
   startMoving(direction);
 });
 
@@ -631,17 +606,19 @@ document.addEventListener("keyup", (event) => {
   if (keyMap[event.key] !== activeKeyDirection) return;
 
   activeKeyDirection = null;
-  stopMoving();
+  resetControls();
 });
 
 window.addEventListener("blur", () => {
   activeKeyDirection = null;
-  resetJoystick();
+  resetControls();
 });
 
 playAgainButton.addEventListener("click", resetGame);
 restartLevelButton.addEventListener("click", resetLevel);
 muteButton.addEventListener("click", toggleMute);
+playScreen.addEventListener("contextmenu", (event) => event.preventDefault());
+playScreen.addEventListener("selectstart", (event) => event.preventDefault());
 updateMuteButton();
 
 rubberBandColors.concat(rubberBandColors, rubberBandColors).slice(0, 12).forEach((color, index) => {

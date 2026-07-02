@@ -14,6 +14,10 @@
   box-sizing: border-box;
 }
 
+html {
+  overscroll-behavior: none;
+}
+
 body {
   min-height: 100vh;
   margin: 0;
@@ -22,6 +26,9 @@ body {
   background:
     radial-gradient(circle at 20% 8%, rgba(55, 190, 205, 0.18), transparent 30%),
     linear-gradient(180deg, #071018 0%, #0c2428 100%);
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 button {
@@ -94,6 +101,8 @@ canvas {
   border-radius: 8px;
   background: #03090c;
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.34);
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .status-row {
@@ -128,70 +137,69 @@ canvas {
   transform: translateY(1px);
 }
 
-.joystick {
-  position: relative;
-  width: 166px;
-  height: 166px;
-  border: 2px solid rgba(255, 255, 255, 0.18);
-  border-radius: 50%;
-  background: var(--panel);
-  box-shadow: inset 0 0 24px rgba(255, 255, 255, 0.04), 0 10px 22px rgba(0, 0, 0, 0.22);
-  cursor: grab;
+.dpad {
+  display: grid;
+  grid-template-columns: repeat(3, 64px);
+  grid-template-rows: repeat(3, 54px);
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
   touch-action: none;
   user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
-.joystick:active {
-  cursor: grabbing;
-}
-
-.joystick-arrow {
-  position: absolute;
-  color: rgba(255, 255, 255, 0.42);
-  font-size: 1.1rem;
+.dpad-button {
+  width: 64px;
+  height: 54px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 14px;
+  color: #ffffff;
+  background: var(--button);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.22);
+  font-size: 1.35rem;
   font-weight: 900;
   line-height: 1;
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.dpad-button.up {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.dpad-button.left {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.dpad-button.center {
+  grid-column: 2;
+  grid-row: 2;
   pointer-events: none;
+  opacity: 0.28;
+  background: rgba(255, 255, 255, 0.08);
 }
 
-.joystick-arrow.up {
-  left: 50%;
-  top: 15px;
-  transform: translateX(-50%);
+.dpad-button.right {
+  grid-column: 3;
+  grid-row: 2;
 }
 
-.joystick-arrow.left {
-  left: 16px;
-  top: 50%;
-  transform: translateY(-50%);
+.dpad-button.down {
+  grid-column: 2;
+  grid-row: 3;
 }
 
-.joystick-arrow.right {
-  right: 16px;
-  top: 50%;
-  transform: translateY(-50%);
-}
-
-.joystick-arrow.down {
-  left: 50%;
-  bottom: 15px;
-  transform: translateX(-50%);
-}
-
-.joystick-knob {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 72px;
-  height: 72px;
-  margin-left: -36px;
-  margin-top: -36px;
-  border: 2px solid rgba(255, 255, 255, 0.28);
-  border-radius: 50%;
+.dpad-button:active,
+.dpad-button.active {
+  color: #ffffff;
   background: var(--button);
-  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.28);
-  pointer-events: none;
-  transform: translate(0, 0);
 }
 
 .victory-screen {
@@ -321,8 +329,14 @@ canvas {
     max-height: 54vh;
   }
 
-  .joystick {
-    width: 150px;
-    height: 150px;
+  .dpad {
+    grid-template-columns: repeat(3, 58px);
+    grid-template-rows: repeat(3, 48px);
+    gap: 7px;
+  }
+
+  .dpad-button {
+    width: 58px;
+    height: 48px;
   }
 }
