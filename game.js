@@ -110,29 +110,29 @@ const levels = [
     1,
     makePoint(1, 1),
     makePoint(9, 11),
-    [makePoint(3, 1), makePoint(7, 2), makePoint(2, 6), makePoint(8, 7), makePoint(5, 10)],
-    [makePoint(4, 2), makePoint(4, 3), makePoint(4, 4), makePoint(6, 5), makePoint(7, 5), makePoint(8, 5), makePoint(2, 8), makePoint(3, 8), makePoint(4, 8)]
+    [makePoint(9, 10), makePoint(9, 9), makePoint(9, 8), makePoint(9, 7), makePoint(5, 11), makePoint(7, 8), makePoint(4, 11), makePoint(7, 7), makePoint(3, 11), makePoint(8, 5), makePoint(9, 3), makePoint(5, 7), makePoint(1, 11), makePoint(7, 4), makePoint(4, 7), makePoint(2, 9), makePoint(9, 1), makePoint(5, 5), makePoint(1, 9), makePoint(6, 3)],
+    [makePoint(1, 2), makePoint(2, 2), makePoint(3, 2), makePoint(4, 2), makePoint(5, 2), makePoint(6, 2), makePoint(7, 2), makePoint(8, 2), makePoint(2, 3), makePoint(8, 3), makePoint(2, 4), makePoint(4, 4), makePoint(5, 4), makePoint(6, 4), makePoint(8, 4), makePoint(2, 5), makePoint(6, 5), makePoint(2, 6), makePoint(3, 6), makePoint(4, 6), makePoint(6, 6), makePoint(7, 6), makePoint(8, 6), makePoint(9, 6), makePoint(2, 7), makePoint(6, 7), makePoint(2, 8), makePoint(4, 8), makePoint(5, 8), makePoint(6, 8), makePoint(8, 8), makePoint(4, 9), makePoint(8, 9), makePoint(2, 10), makePoint(3, 10), makePoint(4, 10), makePoint(5, 10), makePoint(6, 10), makePoint(7, 10), makePoint(8, 10)]
   ),
   makeLevel(
     2,
     makePoint(1, 11),
     makePoint(9, 1),
-    [makePoint(2, 9), makePoint(5, 9), makePoint(8, 8), makePoint(3, 4), makePoint(7, 2)],
-    [makePoint(2, 2), makePoint(3, 2), makePoint(4, 2), makePoint(6, 3), makePoint(6, 4), makePoint(6, 5), makePoint(4, 7), makePoint(5, 7), makePoint(6, 7), makePoint(8, 10)]
+    [makePoint(8, 1), makePoint(7, 1), makePoint(6, 1), makePoint(9, 4), makePoint(7, 3), makePoint(6, 3), makePoint(3, 1), makePoint(7, 5), makePoint(2, 1), makePoint(5, 4), makePoint(9, 8), makePoint(3, 3), makePoint(7, 7), makePoint(1, 2), makePoint(4, 5), makePoint(7, 8), makePoint(9, 10), makePoint(3, 5), makePoint(7, 9), makePoint(1, 4)],
+    [makePoint(4, 1), makePoint(2, 2), makePoint(4, 2), makePoint(5, 2), makePoint(6, 2), makePoint(8, 2), makePoint(2, 3), makePoint(4, 3), makePoint(8, 3), makePoint(2, 4), makePoint(4, 4), makePoint(6, 4), makePoint(7, 4), makePoint(8, 4), makePoint(2, 5), makePoint(6, 5), makePoint(2, 6), makePoint(3, 6), makePoint(4, 6), makePoint(5, 6), makePoint(6, 6), makePoint(8, 6), makePoint(9, 6), makePoint(2, 7), makePoint(8, 7), makePoint(2, 8), makePoint(3, 8), makePoint(4, 8), makePoint(5, 8), makePoint(6, 8), makePoint(8, 8), makePoint(6, 9), makePoint(1, 10), makePoint(2, 10), makePoint(3, 10), makePoint(4, 10), makePoint(6, 10), makePoint(7, 10), makePoint(8, 10), makePoint(6, 11)]
   ),
   makeLevel(
     3,
     makePoint(5, 11),
     makePoint(5, 1),
-    [makePoint(1, 9), makePoint(9, 9), makePoint(2, 5), makePoint(8, 5), makePoint(5, 3)],
-    [makePoint(3, 2), makePoint(3, 3), makePoint(3, 4), makePoint(7, 2), makePoint(7, 3), makePoint(7, 4), makePoint(3, 8), makePoint(4, 8), makePoint(6, 8), makePoint(7, 8)]
+    [makePoint(1, 1), makePoint(2, 1), makePoint(1, 2), makePoint(3, 1), makePoint(1, 3), makePoint(4, 1), makePoint(3, 2), makePoint(3, 3), makePoint(1, 5), makePoint(6, 3), makePoint(7, 4), makePoint(8, 5), makePoint(5, 3), makePoint(7, 5), makePoint(9, 7), makePoint(3, 6), makePoint(1, 8), makePoint(5, 5), makePoint(7, 7), makePoint(9, 9)],
+    [makePoint(2, 2), makePoint(4, 2), makePoint(5, 2), makePoint(6, 2), makePoint(7, 2), makePoint(8, 2), makePoint(2, 3), makePoint(4, 3), makePoint(8, 3), makePoint(1, 4), makePoint(2, 4), makePoint(4, 4), makePoint(6, 4), makePoint(8, 4), makePoint(4, 5), makePoint(6, 5), makePoint(2, 6), makePoint(4, 6), makePoint(5, 6), makePoint(6, 6), makePoint(7, 6), makePoint(8, 6), makePoint(9, 6), makePoint(2, 7), makePoint(4, 7), makePoint(2, 8), makePoint(3, 8), makePoint(4, 8), makePoint(6, 8), makePoint(7, 8), makePoint(8, 8), makePoint(8, 9), makePoint(2, 10), makePoint(3, 10), makePoint(4, 10), makePoint(5, 10), makePoint(6, 10), makePoint(7, 10), makePoint(8, 10), makePoint(4, 11)]
   ),
   makeLevel(
     4,
-    makePoint(1, 6),
-    makePoint(9, 6),
-    [makePoint(2, 2), makePoint(8, 2), makePoint(5, 5), makePoint(2, 10), makePoint(8, 10)],
-    [makePoint(4, 1), makePoint(4, 2), makePoint(4, 3), makePoint(6, 9), makePoint(6, 10), makePoint(6, 11), makePoint(2, 6), makePoint(3, 6), makePoint(7, 6), makePoint(8, 6)]
+    makePoint(1, 5),
+    makePoint(9, 5),
+    [makePoint(9, 11), makePoint(8, 11), makePoint(9, 9), makePoint(8, 1), makePoint(8, 9), makePoint(7, 1), makePoint(9, 7), makePoint(5, 11), makePoint(7, 2), makePoint(9, 6), makePoint(6, 9), makePoint(5, 1), makePoint(7, 7), makePoint(3, 11), makePoint(6, 3), makePoint(6, 7), makePoint(3, 1), makePoint(7, 5), makePoint(3, 9), makePoint(3, 2)],
+    [makePoint(2, 1), makePoint(2, 2), makePoint(4, 2), makePoint(5, 2), makePoint(6, 2), makePoint(8, 2), makePoint(4, 3), makePoint(8, 3), makePoint(1, 4), makePoint(2, 4), makePoint(3, 4), makePoint(4, 4), makePoint(6, 4), makePoint(7, 4), makePoint(8, 4), makePoint(6, 5), makePoint(8, 5), makePoint(1, 6), makePoint(2, 6), makePoint(3, 6), makePoint(4, 6), makePoint(5, 6), makePoint(6, 6), makePoint(8, 6), makePoint(2, 7), makePoint(2, 8), makePoint(4, 8), makePoint(5, 8), makePoint(6, 8), makePoint(7, 8), makePoint(8, 8), makePoint(9, 8), makePoint(4, 9), makePoint(2, 10), makePoint(3, 10), makePoint(4, 10), makePoint(5, 10), makePoint(6, 10), makePoint(7, 10), makePoint(8, 10)]
   )
 ];
 
@@ -509,7 +509,7 @@ function drawRubberBand(x, y, size, color, now) {
 
 function drawBall(x, y) {
   const center = centerOf(x, y);
-  const radius = tileSize * (0.32 + state.collected * 0.025);
+  const radius = tileSize * (0.3 + state.collected * 0.009);
   const gradient = context.createRadialGradient(center.x - 12, center.y - 12, 4, center.x, center.y, radius);
 
   gradient.addColorStop(0, "#fff06a");
