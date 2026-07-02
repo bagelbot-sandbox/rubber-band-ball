@@ -139,6 +139,8 @@ canvas {
 }
 
 .dpad {
+  --stick-x: 0px;
+  --stick-y: 0px;
   display: grid;
   grid-template-columns: repeat(3, 64px);
   grid-template-rows: repeat(3, 54px);
@@ -180,10 +182,10 @@ canvas {
 }
 
 .dpad-button.center {
+  position: relative;
   grid-column: 2;
   grid-row: 2;
   pointer-events: none;
-  opacity: 0.28;
   background: rgba(255, 255, 255, 0.08);
 }
 
@@ -201,6 +203,36 @@ canvas {
 .dpad-button.active {
   color: #ffffff;
   background: var(--button);
+}
+
+.dpad[data-direction="up"] {
+  --stick-y: -13px;
+}
+
+.dpad[data-direction="down"] {
+  --stick-y: 13px;
+}
+
+.dpad[data-direction="left"] {
+  --stick-x: -16px;
+}
+
+.dpad[data-direction="right"] {
+  --stick-x: 16px;
+}
+
+.direction-stick {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 28px;
+  height: 28px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-radius: 50%;
+  background: var(--button);
+  box-shadow: 0 5px 12px rgba(0, 0, 0, 0.28);
+  transform: translate(calc(-50% + var(--stick-x)), calc(-50% + var(--stick-y)));
+  transition: transform 90ms linear;
 }
 
 .victory-screen {
