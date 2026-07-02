@@ -126,8 +126,8 @@ canvas {
   border-radius: 999px;
   color: white;
   background: rgba(239, 80, 57, 0.88);
-  padding: 9px 14px;
-  font-size: 0.95rem;
+  padding: 9px 12px;
+  font-size: 0.9rem;
   font-weight: 900;
   cursor: pointer;
   touch-action: manipulation;
@@ -320,13 +320,44 @@ canvas {
 
 @media (max-height: 720px) {
   .game-shell {
-    gap: 10px;
-    padding-top: 12px;
+    gap: 8px;
+    padding: 10px 12px 12px;
+  }
+
+  .top-bar {
+    gap: 8px;
+  }
+
+  h1 {
+    font-size: 1.18rem;
+  }
+
+  .top-controls {
+    gap: 7px;
+  }
+
+  .level-label,
+  .mute-button {
+    font-size: 0.74rem;
+  }
+
+  .play-screen {
+    gap: 8px;
   }
 
   canvas,
   .victory-screen {
-    max-height: 54vh;
+    max-height: 48vh;
+  }
+
+  .status-row {
+    gap: 6px;
+    font-size: 0.8rem;
+  }
+
+  .status-row span,
+  .restart-level {
+    padding: 7px 9px;
   }
 
   .dpad {
