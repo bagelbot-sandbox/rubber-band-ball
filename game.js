@@ -20,6 +20,7 @@ const tileSize = canvas.width / width;
 const rubberBandColors = ["#fac737", "#f2473f", "#40b9f2", "#5bc76d", "#d96ef2"];
 const moveRepeatMs = 120;
 const ballTravelMs = 120;
+const swipeTurnThreshold = 18;
 const wallWidth = tileSize * 0.24;
 const levelBackgroundSources = [
   "bos-nicholas-short-hair-rbb-660x780.png",
@@ -69,6 +70,8 @@ const pointKey = (point) => `${point.x},${point.y}`;
 const makePoint = (x, y) => ({ x, y });
 let activeInputDirection = null;
 let activeKeyDirection = null;
+let swipePointerId = null;
+let swipeAnchor = null;
 let moveRepeatTimer = null;
 let musicWasStarted = false;
 let currentMusicSource = "";
@@ -220,6 +223,23 @@ function setActiveDpadDirection(direction) {
   dpadButtons.forEach((button) => {
     button.classList.toggle("active", button.dataset.direction === direction);
   });
+}
+
+function directionFromSwipe(start, current) {
+  const dx = current.x - start.x;
+  const dy = current.y - start.y;
+  const absX = Math.abs(dx);
+  const absY = Math.abs(dy);
+
+  if (Math.max(absX, absY) < swipeTurnThreshold) {
+    return null;
+  }
+
+  if (absX > absY) {
+    return dx < 0 ? "left" : "right";
+  }
+
+  return dy < 0 ? "up" : "down";
 }
 
 function move(direction) {
@@ -560,6 +580,47 @@ dpadButtons.forEach((button) => {
       resetControls();
     }
   });
+});
+
+playScreen.addEventListener("pointerdown", (event) => {
+  if (event.target.closest("button")) return;
+
+  event.preventDefault();
+  swipePointerId = event.pointerId;
+  swipeAnchor = { x: event.clientX, y: event.clientY };
+  playScreen.setPointerCapture(event.pointerId);
+});
+
+playScreen.addEventListener("pointermove", (event) => {
+  if (event.pointerId !== swipePointerId || !swipeAnchor) return;
+
+  event.preventDefault();
+  const current = { x: event.clientX, y: event.clientY };
+  const direction = directionFromSwipe(swipeAnchor, current);
+
+  if (!direction) return;
+
+  swipeAnchor = current;
+  setActiveDpadDirection(direction);
+  startMoving(direction);
+});
+
+playScreen.addEventListener("pointerup", (event) => {
+  if (event.pointerId !== swipePointerId) return;
+
+  if (playScreen.hasPointerCapture(event.pointerId)) {
+    playScreen.releasePointerCapture(event.pointerId);
+  }
+
+  swipePointerId = null;
+  swipeAnchor = null;
+  resetControls();
+});
+
+playScreen.addEventListener("pointercancel", () => {
+  swipePointerId = null;
+  swipeAnchor = null;
+  resetControls();
 });
 
 document.addEventListener("keydown", (event) => {
