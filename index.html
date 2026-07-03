@@ -39,9 +39,25 @@
       </section>
 
       <section id="victoryScreen" class="victory-screen hidden" aria-label="Victory dance party">
-        <h2>The Rubber Band Ball</h2>
-        <div id="danceFloor" class="dance-floor" aria-hidden="true"></div>
-        <p>You've won! Have a ball!</p>
+        <h2><span>Welcome to</span><span>The Rubber Band Ball!</span></h2>
+        <span class="bopping-ball" aria-hidden="true"></span>
+        <div id="danceFloor" class="dance-floor" aria-hidden="true">
+          <span class="stage-light left"></span>
+          <span class="stage-light right"></span>
+          <span class="stage-platform"></span>
+          <span class="band-player violin"><span class="rubber-body"></span><span class="instrument"></span></span>
+          <span class="band-player drums"><span class="rubber-body"></span><span class="instrument"></span></span>
+          <span class="band-player clarinet"><span class="rubber-body"></span><span class="instrument"></span></span>
+          <span class="band-player trumpet"><span class="rubber-body"></span><span class="instrument"></span></span>
+        </div>
+        <div class="victory-credits" aria-live="polite">
+          <span class="credit-line title">You win!<br>Enjoy the Ball!</span>
+          <span class="credit-line painting">Painting:<br>Nicholas in the Snow<br>by Bo Elder</span>
+          <span class="credit-line music">Music:<br>St. Nick's Theme<br>by Eric Elder</span>
+          <span class="credit-line orchestration">Orchestration:<br>by Matt Ludwig</span>
+          <span class="credit-line produced">Produced:<br>by Eric Elder</span>
+          <span class="credit-line enjoy">Enjoy the Ball!</span>
+        </div>
         <button id="playAgainButton" class="play-again" type="button">Play Again</button>
       </section>
     </main>

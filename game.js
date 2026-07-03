@@ -12,7 +12,7 @@ const restartLevelButton = document.querySelector("#restartLevelButton");
 const muteButton = document.querySelector("#muteButton");
 const dpad = document.querySelector("#dpad");
 const dpadButtons = [...document.querySelectorAll(".dpad-button[data-direction]")];
-const danceFloor = document.querySelector("#danceFloor");
+const boppingBall = document.querySelector(".bopping-ball");
 
 const width = 11;
 const height = 13;
@@ -42,12 +42,12 @@ const snowflakes = Array.from({ length: 70 }, (_, index) => ({
   phase: index * 0.63
 }));
 const levelMusicSources = [
-  "rbb-level-5-music-strings.mp3",
-  "rbb-level-4-music-horns.mp3",
-  "rbb-level-2-music-percussion.mp3",
-  "rbb-level-3-music-clarinet.mp3"
+  "strings.mp3",
+  "drums.mp3",
+  "clarinets.mp3",
+  "horns.mp3"
 ];
-const victoryMusicSource = "rbb-level-WIN-music-ALL.mp3";
+const victoryMusicSource = "all.mp3";
 const backgroundMusic = new Audio();
 const victoryMusic = new Audio(victoryMusicSource);
 const musicPreloads = levelMusicSources.concat(victoryMusicSource).map((source) => {
@@ -77,8 +77,16 @@ let musicWasStarted = false;
 let currentMusicSource = "";
 let isMuted = false;
 let victoryMusicIsPrimed = false;
+const victoryBall = {
+  x: 14,
+  y: 14,
+  vx: 0,
+  vy: 0,
+  rotation: 0,
+  lastUpdatedAt: 0
+};
 
-const makeLevel = (number, start, exit, bands, innerWalls) => {
+const makeLevel = (number, start, exit, bands, innerWalls, instrumentalist) => {
   const wallKeys = new Set(innerWalls.map(pointKey));
 
   for (let x = 0; x < width; x += 1) {
@@ -101,7 +109,8 @@ const makeLevel = (number, start, exit, bands, innerWalls) => {
     exit,
     bands,
     bandKeys: new Set(bands.map(pointKey)),
-    wallKeys
+    wallKeys,
+    instrumentalist
   };
 };
 
@@ -111,28 +120,32 @@ const levels = [
     makePoint(1, 1),
     makePoint(9, 11),
     [makePoint(9, 10), makePoint(9, 9), makePoint(9, 8), makePoint(9, 7), makePoint(5, 11), makePoint(7, 8), makePoint(4, 11), makePoint(7, 7), makePoint(3, 11), makePoint(8, 5), makePoint(9, 3), makePoint(5, 7), makePoint(1, 11), makePoint(7, 4), makePoint(4, 7), makePoint(2, 9), makePoint(9, 1), makePoint(5, 5), makePoint(1, 9), makePoint(6, 3)],
-    [makePoint(1, 2), makePoint(2, 2), makePoint(3, 2), makePoint(4, 2), makePoint(5, 2), makePoint(6, 2), makePoint(7, 2), makePoint(8, 2), makePoint(2, 3), makePoint(8, 3), makePoint(2, 4), makePoint(4, 4), makePoint(5, 4), makePoint(6, 4), makePoint(8, 4), makePoint(2, 5), makePoint(6, 5), makePoint(2, 6), makePoint(3, 6), makePoint(4, 6), makePoint(6, 6), makePoint(7, 6), makePoint(8, 6), makePoint(9, 6), makePoint(2, 7), makePoint(6, 7), makePoint(2, 8), makePoint(4, 8), makePoint(5, 8), makePoint(6, 8), makePoint(8, 8), makePoint(4, 9), makePoint(8, 9), makePoint(2, 10), makePoint(3, 10), makePoint(4, 10), makePoint(5, 10), makePoint(6, 10), makePoint(7, 10), makePoint(8, 10)]
+    [makePoint(1, 2), makePoint(2, 2), makePoint(3, 2), makePoint(4, 2), makePoint(5, 2), makePoint(6, 2), makePoint(7, 2), makePoint(8, 2), makePoint(2, 3), makePoint(8, 3), makePoint(2, 4), makePoint(4, 4), makePoint(5, 4), makePoint(6, 4), makePoint(8, 4), makePoint(2, 5), makePoint(6, 5), makePoint(2, 6), makePoint(3, 6), makePoint(4, 6), makePoint(6, 6), makePoint(7, 6), makePoint(8, 6), makePoint(9, 6), makePoint(2, 7), makePoint(6, 7), makePoint(2, 8), makePoint(4, 8), makePoint(5, 8), makePoint(6, 8), makePoint(8, 8), makePoint(4, 9), makePoint(8, 9), makePoint(2, 10), makePoint(3, 10), makePoint(4, 10), makePoint(5, 10), makePoint(6, 10), makePoint(7, 10), makePoint(8, 10)],
+    { point: makePoint(9, 1), instrument: "violin" }
   ),
   makeLevel(
     2,
     makePoint(1, 11),
     makePoint(9, 1),
     [makePoint(8, 1), makePoint(7, 1), makePoint(6, 1), makePoint(9, 4), makePoint(7, 3), makePoint(6, 3), makePoint(3, 1), makePoint(7, 5), makePoint(2, 1), makePoint(5, 4), makePoint(9, 8), makePoint(3, 3), makePoint(7, 7), makePoint(1, 2), makePoint(4, 5), makePoint(7, 8), makePoint(9, 10), makePoint(3, 5), makePoint(7, 9), makePoint(1, 4)],
-    [makePoint(4, 1), makePoint(2, 2), makePoint(4, 2), makePoint(5, 2), makePoint(6, 2), makePoint(8, 2), makePoint(2, 3), makePoint(4, 3), makePoint(8, 3), makePoint(2, 4), makePoint(4, 4), makePoint(6, 4), makePoint(7, 4), makePoint(8, 4), makePoint(2, 5), makePoint(6, 5), makePoint(2, 6), makePoint(3, 6), makePoint(4, 6), makePoint(5, 6), makePoint(6, 6), makePoint(8, 6), makePoint(9, 6), makePoint(2, 7), makePoint(8, 7), makePoint(2, 8), makePoint(3, 8), makePoint(4, 8), makePoint(5, 8), makePoint(6, 8), makePoint(8, 8), makePoint(6, 9), makePoint(1, 10), makePoint(2, 10), makePoint(3, 10), makePoint(4, 10), makePoint(6, 10), makePoint(7, 10), makePoint(8, 10), makePoint(6, 11)]
+    [makePoint(4, 1), makePoint(2, 2), makePoint(4, 2), makePoint(5, 2), makePoint(6, 2), makePoint(8, 2), makePoint(2, 3), makePoint(4, 3), makePoint(8, 3), makePoint(2, 4), makePoint(4, 4), makePoint(6, 4), makePoint(7, 4), makePoint(8, 4), makePoint(2, 5), makePoint(6, 5), makePoint(2, 6), makePoint(3, 6), makePoint(4, 6), makePoint(5, 6), makePoint(6, 6), makePoint(8, 6), makePoint(9, 6), makePoint(2, 7), makePoint(8, 7), makePoint(2, 8), makePoint(3, 8), makePoint(4, 8), makePoint(5, 8), makePoint(6, 8), makePoint(8, 8), makePoint(6, 9), makePoint(1, 10), makePoint(2, 10), makePoint(3, 10), makePoint(4, 10), makePoint(6, 10), makePoint(7, 10), makePoint(8, 10), makePoint(6, 11)],
+    { point: makePoint(8, 1), instrument: "drums" }
   ),
   makeLevel(
     3,
     makePoint(5, 11),
     makePoint(5, 1),
     [makePoint(1, 1), makePoint(2, 1), makePoint(1, 2), makePoint(3, 1), makePoint(1, 3), makePoint(4, 1), makePoint(3, 2), makePoint(3, 3), makePoint(1, 5), makePoint(6, 3), makePoint(7, 4), makePoint(8, 5), makePoint(5, 3), makePoint(7, 5), makePoint(9, 7), makePoint(3, 6), makePoint(1, 8), makePoint(5, 5), makePoint(7, 7), makePoint(9, 9)],
-    [makePoint(2, 2), makePoint(4, 2), makePoint(5, 2), makePoint(6, 2), makePoint(7, 2), makePoint(8, 2), makePoint(2, 3), makePoint(4, 3), makePoint(8, 3), makePoint(1, 4), makePoint(2, 4), makePoint(4, 4), makePoint(6, 4), makePoint(8, 4), makePoint(4, 5), makePoint(6, 5), makePoint(2, 6), makePoint(4, 6), makePoint(5, 6), makePoint(6, 6), makePoint(7, 6), makePoint(8, 6), makePoint(9, 6), makePoint(2, 7), makePoint(4, 7), makePoint(2, 8), makePoint(3, 8), makePoint(4, 8), makePoint(6, 8), makePoint(7, 8), makePoint(8, 8), makePoint(8, 9), makePoint(2, 10), makePoint(3, 10), makePoint(4, 10), makePoint(5, 10), makePoint(6, 10), makePoint(7, 10), makePoint(8, 10), makePoint(4, 11)]
+    [makePoint(2, 2), makePoint(4, 2), makePoint(5, 2), makePoint(6, 2), makePoint(7, 2), makePoint(8, 2), makePoint(2, 3), makePoint(4, 3), makePoint(8, 3), makePoint(1, 4), makePoint(2, 4), makePoint(4, 4), makePoint(6, 4), makePoint(8, 4), makePoint(4, 5), makePoint(6, 5), makePoint(2, 6), makePoint(4, 6), makePoint(5, 6), makePoint(6, 6), makePoint(7, 6), makePoint(8, 6), makePoint(9, 6), makePoint(2, 7), makePoint(4, 7), makePoint(2, 8), makePoint(3, 8), makePoint(4, 8), makePoint(6, 8), makePoint(7, 8), makePoint(8, 8), makePoint(8, 9), makePoint(2, 10), makePoint(3, 10), makePoint(4, 10), makePoint(5, 10), makePoint(6, 10), makePoint(7, 10), makePoint(8, 10), makePoint(4, 11)],
+    { point: makePoint(5, 3), instrument: "clarinet" }
   ),
   makeLevel(
     4,
     makePoint(1, 5),
     makePoint(9, 5),
     [makePoint(9, 11), makePoint(8, 11), makePoint(9, 9), makePoint(8, 1), makePoint(8, 9), makePoint(7, 1), makePoint(9, 7), makePoint(5, 11), makePoint(7, 2), makePoint(9, 6), makePoint(6, 9), makePoint(5, 1), makePoint(7, 7), makePoint(3, 11), makePoint(6, 3), makePoint(6, 7), makePoint(3, 1), makePoint(7, 5), makePoint(3, 9), makePoint(3, 2)],
-    [makePoint(2, 1), makePoint(2, 2), makePoint(4, 2), makePoint(5, 2), makePoint(6, 2), makePoint(8, 2), makePoint(4, 3), makePoint(8, 3), makePoint(1, 4), makePoint(2, 4), makePoint(3, 4), makePoint(4, 4), makePoint(6, 4), makePoint(7, 4), makePoint(8, 4), makePoint(6, 5), makePoint(8, 5), makePoint(1, 6), makePoint(2, 6), makePoint(3, 6), makePoint(4, 6), makePoint(5, 6), makePoint(6, 6), makePoint(8, 6), makePoint(2, 7), makePoint(2, 8), makePoint(4, 8), makePoint(5, 8), makePoint(6, 8), makePoint(7, 8), makePoint(8, 8), makePoint(9, 8), makePoint(4, 9), makePoint(2, 10), makePoint(3, 10), makePoint(4, 10), makePoint(5, 10), makePoint(6, 10), makePoint(7, 10), makePoint(8, 10)]
+    [makePoint(2, 1), makePoint(2, 2), makePoint(4, 2), makePoint(5, 2), makePoint(6, 2), makePoint(8, 2), makePoint(4, 3), makePoint(8, 3), makePoint(1, 4), makePoint(2, 4), makePoint(3, 4), makePoint(4, 4), makePoint(6, 4), makePoint(7, 4), makePoint(8, 4), makePoint(6, 5), makePoint(8, 5), makePoint(1, 6), makePoint(2, 6), makePoint(3, 6), makePoint(4, 6), makePoint(5, 6), makePoint(6, 6), makePoint(8, 6), makePoint(2, 7), makePoint(2, 8), makePoint(4, 8), makePoint(5, 8), makePoint(6, 8), makePoint(7, 8), makePoint(8, 8), makePoint(9, 8), makePoint(4, 9), makePoint(2, 10), makePoint(3, 10), makePoint(4, 10), makePoint(5, 10), makePoint(6, 10), makePoint(7, 10), makePoint(8, 10)],
+    { point: makePoint(7, 5), instrument: "trumpet" }
   )
 ];
 
@@ -297,9 +310,59 @@ function completeLevel() {
 function showVictory() {
   stopMoving();
   playVictoryMusic();
+  startVictoryBall();
   playScreen.classList.add("hidden");
   levelLabel.classList.add("hidden");
   victoryScreen.classList.remove("hidden");
+}
+
+function startVictoryBall() {
+  const speed = 0.13;
+  const angle = Math.random() * Math.PI * 2;
+
+  victoryBall.x = 14 + Math.random() * 42;
+  victoryBall.y = 14 + Math.random() * 42;
+  victoryBall.vx = Math.cos(angle) * speed;
+  victoryBall.vy = Math.sin(angle) * speed;
+  victoryBall.rotation = 0;
+  victoryBall.lastUpdatedAt = performance.now();
+  updateVictoryBallPosition();
+}
+
+function updateVictoryBall(now) {
+  if (!state.hasWon) return;
+
+  const rect = victoryScreen.getBoundingClientRect();
+  if (!rect.width || !rect.height) return;
+
+  const ballSize = boppingBall.offsetWidth || 48;
+  const margin = 8;
+  const maxX = Math.max(margin, rect.width - ballSize - margin);
+  const maxY = Math.max(margin, rect.height - ballSize - margin);
+  const elapsed = Math.min(34, now - victoryBall.lastUpdatedAt);
+  victoryBall.lastUpdatedAt = now;
+
+  victoryBall.x += victoryBall.vx * elapsed;
+  victoryBall.y += victoryBall.vy * elapsed;
+  victoryBall.rotation += elapsed * 0.32;
+
+  if (victoryBall.x <= margin || victoryBall.x >= maxX) {
+    victoryBall.x = Math.min(maxX, Math.max(margin, victoryBall.x));
+    victoryBall.vx *= -1;
+  }
+
+  if (victoryBall.y <= margin || victoryBall.y >= maxY) {
+    victoryBall.y = Math.min(maxY, Math.max(margin, victoryBall.y));
+    victoryBall.vy *= -1;
+  }
+
+  updateVictoryBallPosition();
+}
+
+function updateVictoryBallPosition() {
+  boppingBall.style.left = `${victoryBall.x}px`;
+  boppingBall.style.top = `${victoryBall.y}px`;
+  boppingBall.style.transform = `rotate(${victoryBall.rotation}deg)`;
 }
 
 function startLevelMusic() {
@@ -363,6 +426,7 @@ function primeVictoryMusic() {
 
 function draw(now = performance.now()) {
   const level = levels[state.levelIndex];
+  const levelBandColor = rubberBandColors[state.levelIndex % 4];
 
   updateVisualBall(now);
   context.clearRect(0, 0, canvas.width, canvas.height);
@@ -372,9 +436,14 @@ function draw(now = performance.now()) {
   drawWalls(level);
 
   drawExit(level.exit, state.remainingBandKeys.size === 0);
+  const instrumentalistKey = pointKey(level.instrumentalist.point);
   level.bands.forEach((band) => {
     if (state.remainingBandKeys.has(pointKey(band))) {
-      drawRubberBand(band.x, band.y, tileSize * 0.58, "#fac737", now);
+      if (pointKey(band) === instrumentalistKey) {
+        drawInstrumentalist(band.x, band.y, tileSize * 0.72, levelBandColor, level.instrumentalist.instrument, now);
+      } else {
+        drawRubberBand(band.x, band.y, tileSize * 0.58, levelBandColor, now);
+      }
     }
   });
   drawBall(state.visualBall.x, state.visualBall.y);
@@ -504,6 +573,95 @@ function drawRubberBand(x, y, size, color, now) {
   context.shadowColor = color;
   context.shadowBlur = 8;
   drawEllipse(0, 0, size / 2, size * 0.24);
+  context.restore();
+}
+
+function drawInstrumentalist(x, y, size, color, instrument, now) {
+  const center = centerOf(x, y);
+  const bounce = Math.sin(now / 120) * size * 0.08;
+
+  context.save();
+  context.translate(center.x, center.y + bounce);
+  context.rotate(Math.sin(now / 180) * 0.12);
+  context.strokeStyle = color;
+  context.lineWidth = Math.max(3, size * 0.11);
+  context.shadowColor = color;
+  context.shadowBlur = 8;
+  drawEllipse(0, 0, size * 0.25, size * 0.43);
+  context.shadowBlur = 0;
+  drawMiniInstrument(instrument, size);
+  context.restore();
+}
+
+function drawMiniInstrument(instrument, size) {
+  context.save();
+  context.lineCap = "round";
+  context.lineJoin = "round";
+
+  if (instrument === "violin") {
+    context.fillStyle = "#ad6428";
+    context.strokeStyle = "#e2a14a";
+    context.lineWidth = Math.max(2, size * 0.05);
+    context.beginPath();
+    context.ellipse(0, size * 0.02, size * 0.14, size * 0.2, 0, 0, Math.PI * 2);
+    context.fill();
+    context.stroke();
+    context.strokeStyle = "#f7e8ba";
+    context.lineWidth = Math.max(2, size * 0.04);
+    context.beginPath();
+    context.moveTo(size * 0.16, -size * 0.28);
+    context.lineTo(size * 0.34, size * 0.3);
+    context.stroke();
+  }
+
+  if (instrument === "drums") {
+    context.fillStyle = "#d64b45";
+    context.strokeStyle = "#f7f0d0";
+    context.lineWidth = Math.max(2, size * 0.05);
+    context.beginPath();
+    context.rect(-size * 0.22, size * 0.06, size * 0.44, size * 0.22);
+    context.fill();
+    context.stroke();
+    context.strokeStyle = "#f7e8ba";
+    context.beginPath();
+    context.moveTo(-size * 0.18, -size * 0.28);
+    context.lineTo(-size * 0.04, size * 0.04);
+    context.moveTo(size * 0.18, -size * 0.28);
+    context.lineTo(size * 0.04, size * 0.04);
+    context.stroke();
+  }
+
+  if (instrument === "clarinet") {
+    context.strokeStyle = "#d7efff";
+    context.lineWidth = Math.max(2, size * 0.08);
+    context.beginPath();
+    context.moveTo(-size * 0.08, -size * 0.3);
+    context.lineTo(size * 0.08, size * 0.32);
+    context.stroke();
+    context.fillStyle = "#222";
+    context.beginPath();
+    context.ellipse(size * 0.1, size * 0.36, size * 0.13, size * 0.08, 0.25, 0, Math.PI * 2);
+    context.fill();
+  }
+
+  if (instrument === "trumpet") {
+    context.fillStyle = "#f6c94f";
+    context.strokeStyle = "#f7d86e";
+    context.lineWidth = Math.max(2, size * 0.04);
+    context.beginPath();
+    context.rect(-size * 0.28, -size * 0.04, size * 0.42, size * 0.12);
+    context.fill();
+    context.stroke();
+    context.beginPath();
+    context.moveTo(size * 0.1, -size * 0.14);
+    context.lineTo(size * 0.36, -size * 0.25);
+    context.lineTo(size * 0.36, size * 0.25);
+    context.lineTo(size * 0.1, size * 0.14);
+    context.closePath();
+    context.fill();
+    context.stroke();
+  }
+
   context.restore();
 }
 
@@ -682,18 +840,9 @@ playScreen.addEventListener("contextmenu", (event) => event.preventDefault());
 playScreen.addEventListener("selectstart", (event) => event.preventDefault());
 updateMuteButton();
 
-rubberBandColors.concat(rubberBandColors, rubberBandColors).slice(0, 12).forEach((color, index) => {
-  const band = document.createElement("span");
-  band.className = "dancing-band";
-  band.style.color = color;
-  band.style.setProperty("--angle", `${index * 30}deg`);
-  band.style.setProperty("--radius", `${82 + (index % 3) * 14}px`);
-  band.style.animationDelay = `${index * -0.08}s`;
-  danceFloor.appendChild(band);
-});
-
 function animationLoop(now) {
   draw(now);
+  updateVictoryBall(now);
   window.requestAnimationFrame(animationLoop);
 }
 
