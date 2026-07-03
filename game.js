@@ -4,7 +4,6 @@ const levelLabel = document.querySelector("#levelLabel");
 const collectedLabel = document.querySelector("#collectedLabel");
 const remainingLabel = document.querySelector("#remainingLabel");
 const movesLabel = document.querySelector("#movesLabel");
-const exitLabel = document.querySelector("#exitLabel");
 const playScreen = document.querySelector("#playScreen");
 const victoryScreen = document.querySelector("#victoryScreen");
 const playAgainButton = document.querySelector("#playAgainButton");
@@ -713,7 +712,6 @@ function updateLabels() {
   collectedLabel.textContent = `${state.collected} collected`;
   remainingLabel.textContent = `${state.remainingBandKeys.size} left`;
   movesLabel.textContent = `${state.moves} moves`;
-  exitLabel.textContent = state.remainingBandKeys.size === 0 ? "Find exit" : "Collect bands";
 }
 
 dpadButtons.forEach((button) => {
