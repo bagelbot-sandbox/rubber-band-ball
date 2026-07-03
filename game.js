@@ -831,12 +831,19 @@ window.addEventListener("blur", () => {
   resetControls();
 });
 
-playAgainButton.addEventListener("click", resetGame);
-restartLevelButton.addEventListener("click", resetLevel);
+playAgainButton.addEventListener("click", () => {
+  resetGame();
+  startLevelMusic();
+});
+restartLevelButton.addEventListener("click", () => {
+  resetLevel();
+  startLevelMusic();
+});
 muteButton.addEventListener("click", toggleMute);
 playScreen.addEventListener("contextmenu", (event) => event.preventDefault());
 playScreen.addEventListener("selectstart", (event) => event.preventDefault());
 updateMuteButton();
+startLevelMusic();
 
 function animationLoop(now) {
   draw(now);
