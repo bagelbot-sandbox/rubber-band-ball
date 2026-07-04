@@ -754,11 +754,9 @@ playScreen.addEventListener("pointermove", (event) => {
   const current = { x: event.clientX, y: event.clientY };
   const direction = directionFromSwipe(swipeAnchor, current);
 
-  if (!direction) {
-    resetControls();
-    return;
-  }
+  if (!direction) return;
 
+  swipeAnchor = current;
   setActiveDpadDirection(direction);
   startMoving(direction);
 });
