@@ -238,7 +238,7 @@ canvas {
 .victory-screen {
   position: relative;
   width: min(100%, 430px);
-  max-height: 62vh;
+  height: min(78vh, 508px);
   aspect-ratio: 11 / 13;
   display: flex;
   flex-direction: column;
@@ -660,9 +660,14 @@ canvas {
     gap: 8px;
   }
 
-  canvas,
-  .victory-screen {
+  canvas {
     max-height: 48vh;
+  }
+
+  .victory-screen {
+    height: min(72vh, 508px);
+    gap: 14px;
+    padding: 18px;
   }
 
   .status-row {
