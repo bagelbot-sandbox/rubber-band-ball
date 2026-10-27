@@ -1,6 +1,6 @@
 default_platform(:ios)
 
-BUNDLE_ID = "com.eric.RubberBandBall"
+BUNDLE_ID = "com.judahjudah.RubberBandBall"
 SCHEME = "RubberBandBall"
 
 platform :ios do
