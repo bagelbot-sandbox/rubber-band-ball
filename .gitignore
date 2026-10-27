@@ -1,0 +1,6 @@
+DerivedData/
+*.xcuserstate
+xcuserdata/
+.DS_Store
+.venv-demucs/
+*.zip
