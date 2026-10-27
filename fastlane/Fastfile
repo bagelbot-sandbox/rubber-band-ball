@@ -24,7 +24,17 @@ platform :ios do
     match(type: "appstore", app_identifier: BUNDLE_ID, readonly: true, api_key: key)
     latest = latest_testflight_build_number(app_identifier: BUNDLE_ID, api_key: key)
     increment_build_number(build_number: latest + 1, xcodeproj: "RubberBandBall.xcodeproj")
-    build_app(scheme: SCHEME, export_method: "app-store")
+    build_app(
+      scheme: SCHEME,
+      export_method: "app-store",
+      xcargs: "DEVELOPMENT_TEAM=QW4XX3FK3Y CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY='Apple Distribution' PROVISIONING_PROFILE_SPECIFIER='match AppStore #{BUNDLE_ID}'",
+      export_options: {
+        method: "app-store",
+        signingStyle: "manual",
+        teamID: "QW4XX3FK3Y",
+        provisioningProfiles: { BUNDLE_ID => "match AppStore #{BUNDLE_ID}" }
+      }
+    )
     upload_to_testflight(api_key: key, skip_waiting_for_build_processing: true)
   end
 end
