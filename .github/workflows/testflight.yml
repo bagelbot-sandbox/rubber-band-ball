@@ -12,6 +12,7 @@ on:
 jobs:
   run:
     runs-on: macos-latest
+    timeout-minutes: 25
     env:
       ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
       ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}

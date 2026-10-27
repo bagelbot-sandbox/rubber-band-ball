@@ -20,6 +20,7 @@ platform :ios do
 
   desc "Build and upload a new TestFlight build"
   lane :beta do
+    setup_ci if ENV["CI"]
     key = asc_key
     match(type: "appstore", app_identifier: BUNDLE_ID, readonly: true, api_key: key)
     latest = latest_testflight_build_number(app_identifier: BUNDLE_ID, api_key: key)
