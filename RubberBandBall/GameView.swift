@@ -1,40 +1,112 @@
 import SwiftUI
+import UIKit
+import AVFoundation
+
+// Logical coordinates match the 660 x 780 canvas used by the web version.
+private let logicalWidth: CGFloat = 660
+private let logicalHeight: CGFloat = 780
+private let gridWidth = 11
+private let gridHeight = 13
+private let tileSize: CGFloat = 60
+private let wallWidth: CGFloat = tileSize * 0.24
+private let moveRepeatInterval: TimeInterval = 0.12
+private let moveTravelDuration: TimeInterval = 0.12
+private let swipeTurnThreshold: CGFloat = 18
+private let backgroundImageName = "NicholasBackground"
+private let levelMusicNames = ["strings", "drums", "clarinets", "horns"]
+private let victoryMusicName = "all"
+private let musicVolume: Float = 0.35
+
+private let rubberBandColors: [Color] = [
+    Color(hex: 0xfac737),
+    Color(hex: 0xf2473f),
+    Color(hex: 0x40b9f2),
+    Color(hex: 0x5bc76d),
+    Color(hex: 0xd96ef2)
+]
+
+private extension Color {
+    init(hex: UInt32, opacity: Double = 1) {
+        self.init(
+            .sRGB,
+            red: Double((hex >> 16) & 0xff) / 255,
+            green: Double((hex >> 8) & 0xff) / 255,
+            blue: Double(hex & 0xff) / 255,
+            opacity: opacity
+        )
+    }
+}
+
+// MARK: - Model types
 
 private struct GridPoint: Hashable {
     let x: Int
     let y: Int
 }
 
-private enum Direction: Equatable {
-    case up
-    case down
-    case left
-    case right
+private enum Direction {
+    case up, down, left, right
+
+    func applied(to point: GridPoint) -> GridPoint {
+        switch self {
+        case .up: return GridPoint(x: point.x, y: point.y - 1)
+        case .down: return GridPoint(x: point.x, y: point.y + 1)
+        case .left: return GridPoint(x: point.x - 1, y: point.y)
+        case .right: return GridPoint(x: point.x + 1, y: point.y)
+        }
+    }
+}
+
+private enum Instrument {
+    case violin, drums, clarinet, trumpet
 }
 
 private struct Level {
     let number: Int
-    let width: Int = 11
-    let height: Int = 13
     let start: GridPoint
     let exit: GridPoint
     let bands: Set<GridPoint>
     let walls: Set<GridPoint>
+    let instrumentalist: GridPoint
+    let instrument: Instrument
 }
 
-private struct GameState {
-    var levelIndex = 0
-    var ballPosition: GridPoint
-    var collectedBands = 0
-    var moveCount = 0
-    var remainingBands: Set<GridPoint>
-    var hasWon = false
+private func makeLevel(
+    _ number: Int,
+    start: GridPoint,
+    exit: GridPoint,
+    bands: [GridPoint],
+    innerWalls: [GridPoint],
+    instrumentalist: GridPoint,
+    instrument: Instrument
+) -> Level {
+    var walls = Set(innerWalls)
 
-    init(levels: [Level]) {
-        let firstLevel = levels[0]
-        ballPosition = firstLevel.start
-        remainingBands = firstLevel.bands
+    for x in 0..<gridWidth {
+        walls.insert(GridPoint(x: x, y: 0))
+        walls.insert(GridPoint(x: x, y: gridHeight - 1))
     }
+
+    for y in 0..<gridHeight {
+        walls.insert(GridPoint(x: 0, y: y))
+        walls.insert(GridPoint(x: gridWidth - 1, y: y))
+    }
+
+    walls.remove(start)
+    walls.remove(exit)
+    for band in bands {
+        walls.remove(band)
+    }
+
+    return Level(
+        number: number,
+        start: start,
+        exit: exit,
+        bands: Set(bands),
+        walls: walls,
+        instrumentalist: instrumentalist,
+        instrument: instrument
+    )
 }
 
 private let levels: [Level] = [
@@ -60,7 +132,9 @@ private let levels: [Level] = [
             GridPoint(x: 5, y: 8), GridPoint(x: 6, y: 8), GridPoint(x: 8, y: 8), GridPoint(x: 4, y: 9),
             GridPoint(x: 8, y: 9), GridPoint(x: 2, y: 10), GridPoint(x: 3, y: 10), GridPoint(x: 4, y: 10),
             GridPoint(x: 5, y: 10), GridPoint(x: 6, y: 10), GridPoint(x: 7, y: 10), GridPoint(x: 8, y: 10)
-        ]
+        ],
+        instrumentalist: GridPoint(x: 9, y: 1),
+        instrument: .violin
     ),
     makeLevel(
         2,
@@ -84,7 +158,9 @@ private let levels: [Level] = [
             GridPoint(x: 5, y: 8), GridPoint(x: 6, y: 8), GridPoint(x: 8, y: 8), GridPoint(x: 6, y: 9),
             GridPoint(x: 1, y: 10), GridPoint(x: 2, y: 10), GridPoint(x: 3, y: 10), GridPoint(x: 4, y: 10),
             GridPoint(x: 6, y: 10), GridPoint(x: 7, y: 10), GridPoint(x: 8, y: 10), GridPoint(x: 6, y: 11)
-        ]
+        ],
+        instrumentalist: GridPoint(x: 8, y: 1),
+        instrument: .drums
     ),
     makeLevel(
         3,
@@ -108,7 +184,9 @@ private let levels: [Level] = [
             GridPoint(x: 6, y: 8), GridPoint(x: 7, y: 8), GridPoint(x: 8, y: 8), GridPoint(x: 8, y: 9),
             GridPoint(x: 2, y: 10), GridPoint(x: 3, y: 10), GridPoint(x: 4, y: 10), GridPoint(x: 5, y: 10),
             GridPoint(x: 6, y: 10), GridPoint(x: 7, y: 10), GridPoint(x: 8, y: 10), GridPoint(x: 4, y: 11)
-        ]
+        ],
+        instrumentalist: GridPoint(x: 5, y: 3),
+        instrument: .clarinet
     ),
     makeLevel(
         4,
@@ -132,78 +210,494 @@ private let levels: [Level] = [
             GridPoint(x: 6, y: 8), GridPoint(x: 7, y: 8), GridPoint(x: 8, y: 8), GridPoint(x: 9, y: 8),
             GridPoint(x: 4, y: 9), GridPoint(x: 2, y: 10), GridPoint(x: 3, y: 10), GridPoint(x: 4, y: 10),
             GridPoint(x: 5, y: 10), GridPoint(x: 6, y: 10), GridPoint(x: 7, y: 10), GridPoint(x: 8, y: 10)
-        ]
+        ],
+        instrumentalist: GridPoint(x: 7, y: 5),
+        instrument: .trumpet
     )
 ]
 
-private func makeLevel(
-    _ number: Int,
-    start: GridPoint,
-    exit: GridPoint,
-    bands: Set<GridPoint>,
-    innerWalls: Set<GridPoint>
-) -> Level {
-    var walls = innerWalls
+// MARK: - Coordinates
 
-    for x in 0..<11 {
-        walls.insert(GridPoint(x: x, y: 0))
-        walls.insert(GridPoint(x: x, y: 12))
-    }
-
-    for y in 0..<13 {
-        walls.insert(GridPoint(x: 0, y: y))
-        walls.insert(GridPoint(x: 10, y: y))
-    }
-
-    walls.remove(start)
-    walls.remove(exit)
-    bands.forEach { walls.remove($0) }
-
-    return Level(
-        number: number,
-        start: start,
-        exit: exit,
-        bands: bands,
-        walls: walls
-    )
+private func gridPoint(_ point: GridPoint) -> CGPoint {
+    CGPoint(x: CGFloat(point.x), y: CGFloat(point.y))
 }
 
-struct GameView: View {
-    @State private var game = GameState(levels: levels)
+private func pixel(_ grid: CGPoint) -> CGPoint {
+    CGPoint(x: grid.x * tileSize + tileSize / 2, y: grid.y * tileSize + tileSize / 2)
+}
 
-    var body: some View {
-        ZStack {
-            LinearGradient(
-                colors: [Color(red: 0.05, green: 0.08, blue: 0.12), Color(red: 0.08, green: 0.16, blue: 0.17)],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea()
+private func circle(_ center: CGPoint, radius: CGFloat) -> Path {
+    Path(ellipseIn: CGRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2))
+}
 
-            if game.hasWon {
-                VictoryView {
-                    game = GameState(levels: levels)
-                }
-            } else {
-                VStack(spacing: 18) {
-                    header
-                    MazeView(level: currentLevel, game: game)
-                        .aspectRatio(CGFloat(currentLevel.width) / CGFloat(currentLevel.height), contentMode: .fit)
-                        .padding(.horizontal, 18)
-                    status
-                    levelActions
-                    JoystickControl { direction in
-                        move(direction)
-                    }
-                    .padding(.bottom, 16)
-                }
-                .padding(.top, 18)
+private func ellipse(center: CGPoint, rx: CGFloat, ry: CGFloat) -> Path {
+    Path(ellipseIn: CGRect(x: center.x - rx, y: center.y - ry, width: rx * 2, height: ry * 2))
+}
+
+private func bounce(_ value: Double, limit: Double) -> CGFloat {
+    guard limit > 0 else { return 0 }
+    let period = limit * 2
+    let position = value.truncatingRemainder(dividingBy: period)
+    return CGFloat(position <= limit ? position : period - position)
+}
+
+// MARK: - Music
+
+private final class MusicPlayer {
+    private var background: AVAudioPlayer?
+    private var victory: AVAudioPlayer?
+    private var currentName = ""
+    private var muted = false
+
+    init() {
+        try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
+    }
+
+    func playLevel(_ name: String) {
+        if name == currentName {
+            if background?.isPlaying == false {
+                background?.play()
             }
+            return
+        }
+
+        victory?.stop()
+        background?.stop()
+        currentName = name
+        background = makePlayer(named: name)
+        background?.play()
+    }
+
+    func playVictory() {
+        background?.stop()
+        currentName = ""
+        victory?.stop()
+        victory = makePlayer(named: victoryMusicName)
+        victory?.play()
+    }
+
+    func setMuted(_ isMuted: Bool) {
+        muted = isMuted
+        let volume: Float = isMuted ? 0 : musicVolume
+        background?.volume = volume
+        victory?.volume = volume
+    }
+
+    private func makePlayer(named name: String) -> AVAudioPlayer? {
+        guard let data = NSDataAsset(name: name)?.data,
+              let player = try? AVAudioPlayer(data: data) else {
+            return nil
+        }
+        player.numberOfLoops = -1
+        player.volume = muted ? 0 : musicVolume
+        player.prepareToPlay()
+        return player
+    }
+}
+
+// MARK: - Game state
+
+private final class GameModel: ObservableObject {
+    @Published private(set) var levelIndex = 0
+    @Published private(set) var ball = levels[0].start
+    @Published private(set) var collected = 0
+    @Published private(set) var moves = 0
+    @Published private(set) var remaining = levels[0].bands
+    @Published private(set) var hasWon = false
+    @Published private(set) var isMuted = false
+
+    private(set) var from: CGPoint
+    private(set) var moveStart: TimeInterval = 0
+    private var activeDirection: Direction?
+    private var repeatTimer: Timer?
+    private let music = MusicPlayer()
+
+    init() {
+        from = gridPoint(levels[0].start)
+    }
+
+    var level: Level {
+        levels[levelIndex]
+    }
+
+    private var now: TimeInterval {
+        Date().timeIntervalSinceReferenceDate
+    }
+
+    func start() {
+        music.playLevel(levelMusicNames[levelIndex])
+    }
+
+    func startMoving(_ direction: Direction) {
+        activeDirection = direction
+        guard repeatTimer == nil else { return }
+
+        step(direction)
+        repeatTimer = Timer.scheduledTimer(withTimeInterval: moveRepeatInterval, repeats: true) { [weak self] _ in
+            guard let self = self, let current = self.activeDirection else { return }
+            self.step(current)
         }
     }
 
-    private var currentLevel: Level {
-        levels[game.levelIndex]
+    func stopMoving() {
+        activeDirection = nil
+        repeatTimer?.invalidate()
+        repeatTimer = nil
+    }
+
+    func restartLevel() {
+        stopMoving()
+        loadLevel()
+        music.playLevel(levelMusicNames[levelIndex])
+    }
+
+    func playAgain() {
+        stopMoving()
+        levelIndex = 0
+        hasWon = false
+        loadLevel()
+        music.playLevel(levelMusicNames[levelIndex])
+    }
+
+    func toggleMute() {
+        isMuted.toggle()
+        music.setMuted(isMuted)
+    }
+
+    func visualPosition(at time: TimeInterval) -> CGPoint {
+        let progress = min(1, max(0, (time - moveStart) / moveTravelDuration))
+        let eased = CGFloat(progress * progress * (3 - 2 * progress))
+        let target = gridPoint(ball)
+        return CGPoint(
+            x: from.x + (target.x - from.x) * eased,
+            y: from.y + (target.y - from.y) * eased
+        )
+    }
+
+    private func loadLevel() {
+        let start = level.start
+        ball = start
+        from = gridPoint(start)
+        moveStart = now
+        collected = 0
+        moves = 0
+        remaining = level.bands
+    }
+
+    private func step(_ direction: Direction) {
+        guard !hasWon else { return }
+
+        let current = level
+        let next = direction.applied(to: ball)
+        guard !current.walls.contains(next) else { return }
+
+        from = visualPosition(at: now)
+        ball = next
+        moveStart = now
+        moves += 1
+
+        if remaining.remove(next) != nil {
+            collected += 1
+        }
+
+        if remaining.isEmpty && next == current.exit {
+            completeLevel()
+        }
+    }
+
+    private func completeLevel() {
+        if levelIndex == levels.count - 1 {
+            stopMoving()
+            hasWon = true
+            music.playVictory()
+            return
+        }
+
+        levelIndex += 1
+        loadLevel()
+        music.playLevel(levelMusicNames[levelIndex])
+    }
+}
+
+// MARK: - Drawing
+
+private func scaled(_ context: GraphicsContext, to size: CGSize) -> GraphicsContext {
+    var result = context
+    let factor = size.width / logicalWidth
+    result.scaleBy(x: factor, y: factor)
+    return result
+}
+
+private func drawSnow(_ context: inout GraphicsContext, time: TimeInterval) {
+    let ms = time * 1000
+    for index in 0..<70 {
+        let i = Double(index)
+        let radius = CGFloat(1.2 + Double(index % 4) * 0.45)
+        let speed = 0.02 + Double(index % 5) * 0.008
+        let drift = Double(9 + (index % 6) * 4)
+        let phase = i * 0.63
+        let baseX = (i * 97).truncatingRemainder(dividingBy: 660)
+        let baseY = (i * 173).truncatingRemainder(dividingBy: 780)
+        let fall = (baseY + ms * speed).truncatingRemainder(dividingBy: 804)
+        let sway = sin(ms * 0.0011 + phase) * drift
+        let x = (baseX + sway + 660).truncatingRemainder(dividingBy: 660)
+        let y = fall - 12
+        let opacity = 0.36 + (Double(radius) - 1.2) * 0.12
+        context.fill(
+            circle(CGPoint(x: x, y: y), radius: radius),
+            with: .color(Color.white.opacity(opacity))
+        )
+    }
+}
+
+private func drawWalls(_ context: inout GraphicsContext, level: Level) {
+    var links = Path()
+    for wall in level.walls {
+        let right = GridPoint(x: wall.x + 1, y: wall.y)
+        let down = GridPoint(x: wall.x, y: wall.y + 1)
+        if level.walls.contains(right) {
+            links.move(to: pixel(gridPoint(wall)))
+            links.addLine(to: pixel(gridPoint(right)))
+        }
+        if level.walls.contains(down) {
+            links.move(to: pixel(gridPoint(wall)))
+            links.addLine(to: pixel(gridPoint(down)))
+        }
+    }
+
+    context.stroke(
+        links,
+        with: .color(Color(hex: 0x77e6ef, opacity: 0.22)),
+        style: StrokeStyle(lineWidth: wallWidth + 8, lineCap: .round, lineJoin: .round)
+    )
+    context.stroke(
+        links,
+        with: .color(Color(hex: 0x14616f)),
+        style: StrokeStyle(lineWidth: wallWidth, lineCap: .round, lineJoin: .round)
+    )
+
+    var bigNodes = Path()
+    var smallNodes = Path()
+    let bigRadius = wallWidth * 0.52
+    let smallRadius = wallWidth * 0.26
+    for wall in level.walls {
+        let center = pixel(gridPoint(wall))
+        bigNodes.addEllipse(in: CGRect(x: center.x - bigRadius, y: center.y - bigRadius, width: bigRadius * 2, height: bigRadius * 2))
+        smallNodes.addEllipse(in: CGRect(x: center.x - smallRadius, y: center.y - smallRadius, width: smallRadius * 2, height: smallRadius * 2))
+    }
+    context.fill(bigNodes, with: .color(Color(hex: 0x14616f)))
+    context.fill(smallNodes, with: .color(Color(hex: 0x77e6ef, opacity: 0.42)))
+}
+
+private func drawExit(_ context: inout GraphicsContext, at exit: GridPoint, isOpen: Bool) {
+    let c = pixel(gridPoint(exit))
+    var flag = Path()
+    flag.addRect(CGRect(x: c.x - 8, y: c.y - 18, width: 5, height: 34))
+    flag.move(to: CGPoint(x: c.x - 3, y: c.y - 18))
+    flag.addLine(to: CGPoint(x: c.x + 20, y: c.y - 11))
+    flag.addLine(to: CGPoint(x: c.x - 3, y: c.y - 3))
+    flag.closeSubpath()
+    let color = isOpen ? Color(hex: 0x51d26b) : Color.white.opacity(0.45)
+    context.fill(flag, with: .color(color))
+}
+
+private func drawRubberBand(_ context: inout GraphicsContext, center: CGPoint, size: CGFloat, color: Color, time: TimeInterval) {
+    var local = context
+    local.translateBy(x: center.x, y: center.y)
+    local.rotate(by: .radians(time * 1000 / 430))
+    local.addFilter(.shadow(color: color, radius: 8))
+    local.stroke(
+        ellipse(center: .zero, rx: size / 2, ry: size * 0.24),
+        with: .color(color),
+        lineWidth: max(4, size * 0.16)
+    )
+}
+
+private func drawInstrumentalist(_ context: inout GraphicsContext, center: CGPoint, size: CGFloat, color: Color, instrument: Instrument, time: TimeInterval) {
+    let ms = time * 1000
+    let bounce = CGFloat(sin(ms / 120)) * size * 0.08
+    var local = context
+    local.translateBy(x: center.x, y: center.y + bounce)
+    local.rotate(by: .radians(sin(ms / 180) * 0.12))
+
+    var glow = local
+    glow.addFilter(.shadow(color: color, radius: 8))
+    glow.stroke(
+        ellipse(center: .zero, rx: size * 0.25, ry: size * 0.43),
+        with: .color(color),
+        lineWidth: max(3, size * 0.11)
+    )
+
+    drawInstrument(&local, instrument, size: size)
+}
+
+private func drawInstrument(_ context: inout GraphicsContext, _ instrument: Instrument, size s: CGFloat) {
+    switch instrument {
+    case .violin:
+        let frame = CGRect(x: -s * 0.14, y: s * 0.02 - s * 0.2, width: s * 0.28, height: s * 0.4)
+        context.fill(Path(ellipseIn: frame), with: .color(Color(hex: 0xad6428)))
+        context.stroke(Path(ellipseIn: frame), with: .color(Color(hex: 0xe2a14a)), lineWidth: max(2, s * 0.05))
+        var neck = Path()
+        neck.move(to: CGPoint(x: s * 0.16, y: -s * 0.28))
+        neck.addLine(to: CGPoint(x: s * 0.34, y: s * 0.3))
+        context.stroke(neck, with: .color(Color(hex: 0xf7e8ba)), lineWidth: max(2, s * 0.04))
+
+    case .drums:
+        let shell = CGRect(x: -s * 0.22, y: s * 0.06, width: s * 0.44, height: s * 0.22)
+        context.fill(Path(shell), with: .color(Color(hex: 0xd64b45)))
+        context.stroke(Path(shell), with: .color(Color(hex: 0xf7f0d0)), lineWidth: max(2, s * 0.05))
+        var sticks = Path()
+        sticks.move(to: CGPoint(x: -s * 0.18, y: -s * 0.28))
+        sticks.addLine(to: CGPoint(x: -s * 0.04, y: s * 0.04))
+        sticks.move(to: CGPoint(x: s * 0.18, y: -s * 0.28))
+        sticks.addLine(to: CGPoint(x: s * 0.04, y: s * 0.04))
+        context.stroke(sticks, with: .color(Color(hex: 0xf7e8ba)), lineWidth: max(2, s * 0.04))
+
+    case .clarinet:
+        var barrel = Path()
+        barrel.move(to: CGPoint(x: -s * 0.08, y: -s * 0.3))
+        barrel.addLine(to: CGPoint(x: s * 0.08, y: s * 0.32))
+        context.stroke(barrel, with: .color(Color(hex: 0xd7efff)), lineWidth: max(2, s * 0.08))
+        var bell = context
+        bell.translateBy(x: s * 0.1, y: s * 0.36)
+        bell.rotate(by: .radians(0.25))
+        bell.fill(
+            Path(ellipseIn: CGRect(x: -s * 0.13, y: -s * 0.08, width: s * 0.26, height: s * 0.16)),
+            with: .color(Color(hex: 0x222222))
+        )
+
+    case .trumpet:
+        let valve = CGRect(x: -s * 0.28, y: -s * 0.04, width: s * 0.42, height: s * 0.12)
+        context.fill(Path(valve), with: .color(Color(hex: 0xf6c94f)))
+        context.stroke(Path(valve), with: .color(Color(hex: 0xf7d86e)), lineWidth: max(2, s * 0.04))
+        var bell = Path()
+        bell.move(to: CGPoint(x: s * 0.1, y: -s * 0.14))
+        bell.addLine(to: CGPoint(x: s * 0.36, y: -s * 0.25))
+        bell.addLine(to: CGPoint(x: s * 0.36, y: s * 0.25))
+        bell.addLine(to: CGPoint(x: s * 0.1, y: s * 0.14))
+        bell.closeSubpath()
+        context.fill(bell, with: .color(Color(hex: 0xf6c94f)))
+        context.stroke(bell, with: .color(Color(hex: 0xf7d86e)), lineWidth: max(2, s * 0.04))
+    }
+}
+
+private func drawBall(_ context: inout GraphicsContext, center c: CGPoint, radius r: CGFloat, collected: Int) {
+    var glow = context
+    glow.addFilter(.shadow(color: Color(hex: 0xf59e22, opacity: 0.5), radius: 16))
+    let gradient = Gradient(stops: [
+        Gradient.Stop(color: Color(hex: 0xfff06a), location: 0),
+        Gradient.Stop(color: Color(hex: 0xf49a24), location: 0.55),
+        Gradient.Stop(color: Color(hex: 0xd7332b), location: 1)
+    ])
+    glow.fill(
+        circle(c, radius: r),
+        with: .radialGradient(
+            gradient,
+            center: CGPoint(x: c.x - 12, y: c.y - 12),
+            startRadius: 4,
+            endRadius: r
+        )
+    )
+
+    let bandCount = max(3, collected + 3)
+    for index in 0..<bandCount {
+        var band = context
+        band.translateBy(x: c.x, y: c.y)
+        band.rotate(by: .radians(Double(index) * 31 * Double.pi / 180))
+        band.stroke(
+            ellipse(center: .zero, rx: r * 0.82, ry: r * 0.36),
+            with: .color(rubberBandColors[index % rubberBandColors.count]),
+            lineWidth: max(3, r * 0.16)
+        )
+    }
+}
+
+private func drawMaze(
+    _ context: inout GraphicsContext,
+    level: Level,
+    remaining: Set<GridPoint>,
+    ballPosition: CGPoint,
+    collected: Int,
+    bandColor: Color,
+    time: TimeInterval
+) {
+    drawWalls(&context, level: level)
+    drawExit(&context, at: level.exit, isOpen: remaining.isEmpty)
+
+    for band in level.bands where remaining.contains(band) {
+        if band == level.instrumentalist {
+            drawInstrumentalist(
+                &context,
+                center: pixel(gridPoint(band)),
+                size: tileSize * 0.72,
+                color: bandColor,
+                instrument: level.instrument,
+                time: time
+            )
+        } else {
+            drawRubberBand(
+                &context,
+                center: pixel(gridPoint(band)),
+                size: tileSize * 0.58,
+                color: bandColor,
+                time: time
+            )
+        }
+    }
+
+    drawBall(
+        &context,
+        center: pixel(ballPosition),
+        radius: tileSize * (0.3 + CGFloat(collected) * 0.009),
+        collected: collected
+    )
+}
+
+private func drawDancers(_ context: inout GraphicsContext, size: CGSize, time: TimeInterval) {
+    let instruments: [Instrument] = [.violin, .drums, .clarinet, .trumpet]
+    for (index, instrument) in instruments.enumerated() {
+        let x = size.width * (CGFloat(index) + 0.5) / 4
+        let y = size.height * 0.62
+        drawInstrumentalist(
+            &context,
+            center: CGPoint(x: x, y: y),
+            size: 56,
+            color: rubberBandColors[index],
+            instrument: instrument,
+            time: time
+        )
+    }
+}
+
+// MARK: - Views
+
+struct GameView: View {
+    @StateObject private var model = GameModel()
+
+    var body: some View {
+        ZStack {
+            Color(hex: 0x03090c).ignoresSafeArea()
+
+            if model.hasWon {
+                VictoryView(playAgain: { model.playAgain() })
+            } else {
+                gameplay
+            }
+        }
+        .onAppear { model.start() }
+        .onDisappear { model.stopMoving() }
+    }
+
+    private var gameplay: some View {
+        VStack(spacing: 14) {
+            header
+            MazeView(model: model)
+                .padding(.horizontal, 12)
+            statusRow
+            DPadView(model: model)
+            Spacer(minLength: 0)
+        }
+        .padding(.top, 12)
     }
 
     private var header: some View {
@@ -214,429 +708,221 @@ struct GameView: View {
 
             Spacer()
 
-            Text("Level \(currentLevel.number)/\(levels.count)")
-                .font(.system(.headline, design: .rounded, weight: .semibold))
+            Text("Level \(model.level.number)/\(levels.count)")
+                .font(.system(.subheadline, design: .rounded, weight: .semibold))
                 .foregroundStyle(.white.opacity(0.85))
+
+            Button(model.isMuted ? "Unmute" : "Mute") {
+                model.toggleMute()
+            }
+            .buttonStyle(.bordered)
+            .tint(.white)
         }
-        .padding(.horizontal, 22)
+        .padding(.horizontal, 18)
     }
 
-    private var status: some View {
-        VStack(spacing: 8) {
-            HStack(spacing: 14) {
-                Label("\(game.collectedBands)", systemImage: "circle.hexagongrid.circle")
-                Label("\(game.remainingBands.count) left", systemImage: "target")
-                Label("\(game.moveCount) moves", systemImage: "shoeprints.fill")
+    private var statusRow: some View {
+        HStack(spacing: 12) {
+            Text("\(model.collected) collected")
+            Text("\(model.remaining.count) left")
+            Text("\(model.moves) moves")
+            Button("Restart") {
+                model.restartLevel()
             }
-
-            if game.remainingBands.isEmpty {
-                Label("Find exit", systemImage: "flag.checkered")
-            }
+            .buttonStyle(.borderedProminent)
+            .tint(Color(hex: 0xf24f38))
         }
         .font(.system(.subheadline, design: .rounded, weight: .semibold))
         .foregroundStyle(.white.opacity(0.9))
         .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .background(.white.opacity(0.1), in: Capsule())
-    }
-
-    private var levelActions: some View {
-        Button {
-            resetCurrentLevel()
-        } label: {
-            Label("Restart Level", systemImage: "arrow.counterclockwise")
-                .font(.system(.subheadline, design: .rounded, weight: .bold))
-                .foregroundStyle(.white)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 9)
-                .background(Color(red: 0.93, green: 0.31, blue: 0.22).opacity(0.88), in: Capsule())
-        }
-        .buttonStyle(.plain)
-        .accessibilityHint("Returns the ball to the start of this level.")
-    }
-
-    private func move(_ direction: Direction) {
-        let nextPoint: GridPoint
-
-        switch direction {
-        case .up:
-            nextPoint = GridPoint(x: game.ballPosition.x, y: game.ballPosition.y - 1)
-        case .down:
-            nextPoint = GridPoint(x: game.ballPosition.x, y: game.ballPosition.y + 1)
-        case .left:
-            nextPoint = GridPoint(x: game.ballPosition.x - 1, y: game.ballPosition.y)
-        case .right:
-            nextPoint = GridPoint(x: game.ballPosition.x + 1, y: game.ballPosition.y)
-        }
-
-        guard !currentLevel.walls.contains(nextPoint) else {
-            return
-        }
-
-        withAnimation(.linear(duration: 0.15)) {
-            game.ballPosition = nextPoint
-            game.moveCount += 1
-
-            if game.remainingBands.remove(nextPoint) != nil {
-                game.collectedBands += 1
-            }
-        }
-
-        if game.remainingBands.isEmpty && nextPoint == currentLevel.exit {
-            completeLevel()
-        }
-    }
-
-    private func completeLevel() {
-        if game.levelIndex == levels.count - 1 {
-            withAnimation(.easeInOut(duration: 0.35)) {
-                game.hasWon = true
-            }
-            return
-        }
-
-        let nextIndex = game.levelIndex + 1
-        let nextLevel = levels[nextIndex]
-
-        withAnimation(.easeInOut(duration: 0.25)) {
-            game.levelIndex = nextIndex
-            game.ballPosition = nextLevel.start
-            game.collectedBands = 0
-            game.moveCount = 0
-            game.remainingBands = nextLevel.bands
-        }
-    }
-
-    private func resetCurrentLevel() {
-        let level = currentLevel
-
-        withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
-            game.ballPosition = level.start
-            game.collectedBands = 0
-            game.moveCount = 0
-            game.remainingBands = level.bands
-        }
     }
 }
 
 private struct MazeView: View {
-    let level: Level
-    let game: GameState
+    let model: GameModel
+    @State private var swipeAnchor: CGPoint?
 
     var body: some View {
-        GeometryReader { geometry in
-            let tileSize = min(
-                geometry.size.width / CGFloat(level.width),
-                geometry.size.height / CGFloat(level.height)
-            )
-            let gridSize = CGSize(
-                width: tileSize * CGFloat(level.width),
-                height: tileSize * CGFloat(level.height)
-            )
-            let origin = CGPoint(
-                x: (geometry.size.width - gridSize.width) / 2,
-                y: (geometry.size.height - gridSize.height) / 2
-            )
+        TimelineView(.animation) { timeline in
+            let time = timeline.date.timeIntervalSinceReferenceDate
+            let level = model.level
+            let ballPosition = model.visualPosition(at: time)
 
             ZStack {
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(Color(red: 0.02, green: 0.04, blue: 0.06))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(.white.opacity(0.18), lineWidth: 2)
+                Image(backgroundImageName)
+                    .resizable()
+                    .scaledToFill()
+
+                Color(hex: 0x03090c, opacity: 0.18)
+
+                Canvas { context, size in
+                    var scaledContext = scaled(context, to: size)
+                    drawSnow(&scaledContext, time: time)
+                }
+
+                Canvas { context, size in
+                    var scaledContext = scaled(context, to: size)
+                    drawMaze(
+                        &scaledContext,
+                        level: level,
+                        remaining: model.remaining,
+                        ballPosition: ballPosition,
+                        collected: model.collected,
+                        bandColor: rubberBandColors[model.levelIndex % 4],
+                        time: time
                     )
+                }
+            }
+            .aspectRatio(logicalWidth / logicalHeight, contentMode: .fit)
+            .clipped()
+            .contentShape(Rectangle())
+            .gesture(swipeGesture)
+        }
+    }
 
-                ForEach(0..<level.height, id: \.self) { y in
-                    ForEach(0..<level.width, id: \.self) { x in
-                        let point = GridPoint(x: x, y: y)
+    private var swipeGesture: some Gesture {
+        DragGesture(minimumDistance: 0)
+            .onChanged { value in
+                let anchor = swipeAnchor ?? value.location
+                swipeAnchor = anchor
 
-                        TileView(
-                            point: point,
-                            level: level,
-                            game: game,
-                            tileSize: tileSize,
-                            bandColor: rubberBandColors[game.levelIndex % 4]
-                        )
-                        .frame(width: tileSize, height: tileSize)
-                        .position(
-                            x: origin.x + CGFloat(x) * tileSize + tileSize / 2,
-                            y: origin.y + CGFloat(y) * tileSize + tileSize / 2
-                        )
+                let dx = value.location.x - anchor.x
+                let dy = value.location.y - anchor.y
+                guard max(abs(dx), abs(dy)) >= swipeTurnThreshold else { return }
+
+                let direction: Direction
+                if abs(dx) > abs(dy) {
+                    direction = dx < 0 ? .left : .right
+                } else {
+                    direction = dy < 0 ? .up : .down
+                }
+
+                swipeAnchor = value.location
+                model.startMoving(direction)
+            }
+            .onEnded { _ in
+                swipeAnchor = nil
+                model.stopMoving()
+            }
+    }
+}
+
+private struct DPadView: View {
+    let model: GameModel
+
+    var body: some View {
+        VStack(spacing: 8) {
+            DPadButton(symbol: "chevron.up", label: "Move up", direction: .up, model: model)
+            HStack(spacing: 8) {
+                DPadButton(symbol: "chevron.left", label: "Move left", direction: .left, model: model)
+                Color.clear.frame(width: 64, height: 64)
+                DPadButton(symbol: "chevron.right", label: "Move right", direction: .right, model: model)
+            }
+            DPadButton(symbol: "chevron.down", label: "Move down", direction: .down, model: model)
+        }
+    }
+}
+
+private struct DPadButton: View {
+    let symbol: String
+    let label: String
+    let direction: Direction
+    let model: GameModel
+    @State private var isPressed = false
+
+    var body: some View {
+        Image(systemName: symbol)
+            .font(.system(size: 22, weight: .black))
+            .foregroundStyle(.white)
+            .frame(width: 64, height: 64)
+            .background(Circle().fill(Color.white.opacity(isPressed ? 0.28 : 0.12)))
+            .overlay(Circle().stroke(Color.white.opacity(0.2), lineWidth: 1))
+            .contentShape(Circle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { _ in
+                        guard !isPressed else { return }
+                        isPressed = true
+                        model.startMoving(direction)
                     }
-                }
-
-                BallView(collectedBands: game.collectedBands, size: tileSize * 0.82)
-                    .position(
-                        x: origin.x + CGFloat(game.ballPosition.x) * tileSize + tileSize / 2,
-                        y: origin.y + CGFloat(game.ballPosition.y) * tileSize + tileSize / 2
-                    )
-            }
-            .frame(width: gridSize.width, height: gridSize.height)
-            .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
-        }
-    }
-}
-
-private struct TileView: View {
-    let point: GridPoint
-    let level: Level
-    let game: GameState
-    let tileSize: CGFloat
-    let bandColor: Color
-
-    var body: some View {
-        ZStack {
-            if level.walls.contains(point) {
-                RoundedRectangle(cornerRadius: 3)
-                    .fill(Color(red: 0.08, green: 0.38, blue: 0.45))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 3)
-                            .stroke(Color(red: 0.31, green: 0.78, blue: 0.84).opacity(0.45), lineWidth: 1)
-                    )
-            } else {
-                Rectangle()
-                    .fill(Color.white.opacity(0.035))
-                    .overlay(
-                        Rectangle()
-                            .stroke(Color.white.opacity(0.04), lineWidth: 0.5)
-                    )
-            }
-
-            if point == level.exit {
-                Image(systemName: "flag.checkered")
-                    .font(.system(size: tileSize * 0.46, weight: .bold))
-                    .foregroundStyle(game.remainingBands.isEmpty ? .green : .white.opacity(0.45))
-            }
-
-            if game.remainingBands.contains(point) {
-                RubberBandView(size: tileSize * 0.58, color: bandColor)
-            }
-        }
-    }
-}
-
-private struct BallView: View {
-    let collectedBands: Int
-    let size: CGFloat
-
-    var body: some View {
-        ZStack {
-            Circle()
-                .fill(
-                    RadialGradient(
-                        colors: [Color.yellow.opacity(0.95), Color.orange, Color.red.opacity(0.85)],
-                        center: .topLeading,
-                        startRadius: 3,
-                        endRadius: size
-                    )
-                )
-                .shadow(color: .orange.opacity(0.5), radius: 8, y: 3)
-
-            ForEach(0..<max(3, collectedBands + 3), id: \.self) { index in
-                Capsule()
-                    .stroke(rubberBandColors[index % rubberBandColors.count], lineWidth: max(2, size * 0.07))
-                    .frame(width: size * 0.86, height: size * 0.38)
-                    .rotationEffect(.degrees(Double(index) * 31))
-            }
-        }
-        .frame(
-            width: size + CGFloat(collectedBands) * 0.7,
-            height: size + CGFloat(collectedBands) * 0.7
-        )
-    }
-}
-
-private struct RubberBandView: View {
-    let size: CGFloat
-    let color: Color
-    @State private var isSpinning = false
-
-    var body: some View {
-        Capsule()
-            .stroke(color, lineWidth: max(3, size * 0.16))
-            .frame(width: size, height: size * 0.48)
-            .rotationEffect(.degrees(isSpinning ? 336 : -24))
-            .shadow(color: color.opacity(0.45), radius: 4)
-            .onAppear {
-                withAnimation(.linear(duration: 1.9).repeatForever(autoreverses: false)) {
-                    isSpinning = true
-                }
-            }
-    }
-}
-
-private struct JoystickControl: View {
-    let onMove: (Direction) -> Void
-    @State private var knobOffset: CGSize = .zero
-    @State private var activeDirection: Direction?
-
-    private let controlSize: CGFloat = 166
-    private let knobSize: CGFloat = 72
-    private let maxOffset: CGFloat = 46
-    private let deadZone: CGFloat = 14
-    private let repeatTimer = Timer.publish(every: 0.15, on: .main, in: .common).autoconnect()
-
-    var body: some View {
-        ZStack {
-            Circle()
-                .fill(.white.opacity(0.1))
-                .overlay(Circle().stroke(.white.opacity(0.18), lineWidth: 2))
-
-            VStack {
-                Image(systemName: "chevron.up")
-                Spacer()
-                Image(systemName: "chevron.down")
-            }
-            .font(.system(size: 18, weight: .black))
-            .foregroundStyle(.white.opacity(0.4))
-            .padding(.vertical, 16)
-
-            HStack {
-                Image(systemName: "chevron.left")
-                Spacer()
-                Image(systemName: "chevron.right")
-            }
-            .font(.system(size: 18, weight: .black))
-            .foregroundStyle(.white.opacity(0.4))
-            .padding(.horizontal, 16)
-
-            Circle()
-                .fill(Color(red: 0.17, green: 0.55, blue: 0.62))
-                .overlay(Circle().stroke(.white.opacity(0.28), lineWidth: 2))
-                .shadow(color: .black.opacity(0.28), radius: 8, y: 4)
-                .frame(width: knobSize, height: knobSize)
-                .offset(knobOffset)
-        }
-        .frame(width: controlSize, height: controlSize)
-        .contentShape(Circle())
-        .gesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { value in
-                    updateJoystick(translation: value.translation)
-                }
-                .onEnded { _ in
-                    withAnimation(.spring(response: 0.22, dampingFraction: 0.78)) {
-                        knobOffset = .zero
-                        activeDirection = nil
+                    .onEnded { _ in
+                        isPressed = false
+                        model.stopMoving()
                     }
-                }
-        )
-        .onReceive(repeatTimer) { _ in
-            if let activeDirection {
-                onMove(activeDirection)
-            }
-        }
-        .accessibilityLabel("Movement joystick")
-        .accessibilityHint("Drag and hold up, down, left, or right to keep the ball moving.")
-    }
-
-    private func updateJoystick(translation: CGSize) {
-        let clamped = clampedOffset(for: translation)
-        let nextDirection = direction(for: clamped)
-
-        knobOffset = clamped
-
-        if nextDirection != activeDirection {
-            activeDirection = nextDirection
-
-            if let nextDirection {
-                onMove(nextDirection)
-            }
-        }
-    }
-
-    private func clampedOffset(for translation: CGSize) -> CGSize {
-        let distance = hypot(translation.width, translation.height)
-
-        guard distance > maxOffset else {
-            return translation
-        }
-
-        let scale = maxOffset / distance
-        return CGSize(width: translation.width * scale, height: translation.height * scale)
-    }
-
-    private func direction(for offset: CGSize) -> Direction? {
-        guard max(abs(offset.width), abs(offset.height)) >= deadZone else {
-            return nil
-        }
-
-        if abs(offset.width) > abs(offset.height) {
-            return offset.width < 0 ? .left : .right
-        }
-
-        return offset.height < 0 ? .up : .down
+            )
+            .accessibilityLabel(label)
     }
 }
 
 private struct VictoryView: View {
-    let restart: () -> Void
-    @State private var isDancing = false
+    let playAgain: () -> Void
 
     var body: some View {
-        VStack(spacing: 24) {
-            Spacer()
+        VStack(spacing: 14) {
+            Text("Welcome to")
+                .font(.system(.title3, design: .rounded, weight: .semibold))
 
-            Text("The Rubber Band Ball")
-                .font(.system(size: 36, weight: .black, design: .rounded))
+            Text("The Rubber Band Ball!")
+                .font(.system(size: 32, weight: .black, design: .rounded))
                 .multilineTextAlignment(.center)
-                .foregroundStyle(.white)
 
-            ZStack {
-                ForEach(0..<12, id: \.self) { index in
-                    DancingBand(index: index, isDancing: isDancing)
-                }
-            }
-            .frame(height: 260)
+            VictoryStage()
+                .frame(height: 260)
 
-            Text("You won! Have a ball!")
+            Text("You win!\nEnjoy the Ball!")
                 .font(.system(.title2, design: .rounded, weight: .bold))
-                .foregroundStyle(.white)
                 .multilineTextAlignment(.center)
 
-            Button(action: restart) {
+            VStack(spacing: 4) {
+                Text("Painting: Nicholas in the Snow by Bo Elder")
+                Text("Music: St. Nick's Theme by Eric Elder")
+                Text("Orchestration: by Matt Ludwig")
+                Text("Produced: by Eric Elder")
+            }
+            .font(.footnote)
+            .multilineTextAlignment(.center)
+            .foregroundStyle(.white.opacity(0.75))
+
+            Button(action: playAgain) {
                 Label("Play Again", systemImage: "arrow.clockwise")
                     .font(.system(.headline, design: .rounded, weight: .bold))
-                    .foregroundStyle(.white)
                     .padding(.horizontal, 22)
                     .padding(.vertical, 13)
-                    .background(Color(red: 0.93, green: 0.31, blue: 0.22), in: Capsule())
             }
-            .buttonStyle(.plain)
-
-            Spacer()
+            .buttonStyle(.borderedProminent)
+            .tint(Color(hex: 0xf24f38))
         }
+        .foregroundStyle(.white)
         .padding(24)
-        .onAppear {
-            withAnimation(.easeInOut(duration: 0.55).repeatForever(autoreverses: true)) {
-                isDancing = true
+    }
+}
+
+private struct VictoryStage: View {
+    var body: some View {
+        TimelineView(.animation) { timeline in
+            let time = timeline.date.timeIntervalSinceReferenceDate
+            GeometryReader { geometry in
+                let ballBox: CGFloat = 48
+                let maxX = Double(max(0, geometry.size.width - ballBox - 16))
+                let maxY = Double(max(0, geometry.size.height * 0.55))
+                let x = bounce(time * 130, limit: maxX) + 8
+                let y = bounce(time * 95 + 40, limit: maxY) + 8
+
+                ZStack {
+                    Canvas { context, _ in
+                        var ballContext = context
+                        drawBall(&ballContext, center: CGPoint(x: 24, y: 24), radius: 22, collected: 0)
+                    }
+                    .frame(width: ballBox, height: ballBox)
+                    .position(x: x + ballBox / 2, y: y + ballBox / 2)
+
+                    Canvas { context, size in
+                        var danceContext = context
+                        drawDancers(&danceContext, size: size, time: time)
+                    }
+                }
+                .frame(width: geometry.size.width, height: geometry.size.height)
             }
         }
     }
 }
-
-private struct DancingBand: View {
-    let index: Int
-    let isDancing: Bool
-
-    var body: some View {
-        Capsule()
-            .stroke(rubberBandColors[index % rubberBandColors.count], lineWidth: 7)
-            .frame(width: 82, height: 38)
-            .rotationEffect(.degrees(Double(index) * 28 + (isDancing ? 18 : -18)))
-            .offset(
-                x: cos(Double(index) * .pi / 6) * 92,
-                y: sin(Double(index) * .pi / 6) * 76 + (isDancing ? -16 : 16)
-            )
-            .scaleEffect(isDancing ? 1.14 : 0.9)
-            .shadow(color: rubberBandColors[index % rubberBandColors.count].opacity(0.55), radius: 10)
-    }
-}
-
-private let rubberBandColors: [Color] = [
-    Color(red: 0.98, green: 0.78, blue: 0.22),
-    Color(red: 0.95, green: 0.28, blue: 0.25),
-    Color(red: 0.25, green: 0.73, blue: 0.95),
-    Color(red: 0.36, green: 0.78, blue: 0.42),
-    Color(red: 0.85, green: 0.43, blue: 0.95)
-]
